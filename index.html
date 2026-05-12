@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tom O'Rourke — Solo agentic deployment demos &amp; patterns</title>
+<meta name="description" content="A series of hands-on demos, best practices and deployment patterns for Solo agentic AI workloads running on Istio's ambient mesh.">
+<style>
+  :root {
+    --ink: #0f172a;
+    --muted: #5b6675;
+    --line: rgba(15,23,42,0.10);
+    --bg: #ffffff;
+    --accent: #1cb5d3;
+    --accent-dark: #0891b2;
+    --card-bg: #f8fafc;
+    --card-border: rgba(15,23,42,0.10);
+    --navy: #0a1a3a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6; font-size: 17px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-dark); text-decoration: underline; }
+
+  header.hero {
+    background: linear-gradient(135deg, var(--navy) 0%, #0f172a 100%);
+    color: #e2e8f0;
+    padding: 80px 32px 72px;
+  }
+  header.hero .wrap { max-width: 1100px; margin: 0 auto; }
+  header.hero .eyebrow {
+    color: #67e8f9; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase;
+    font-weight: 600; margin-bottom: 16px;
+  }
+  header.hero h1 {
+    font-size: 44px; line-height: 1.1; margin: 0 0 16px;
+    letter-spacing: -0.02em; font-weight: 700; color: #f8fafc;
+    max-width: 900px;
+  }
+  header.hero .sub {
+    font-size: 19px; line-height: 1.55; color: #cbd5e1; max-width: 760px; margin: 0 0 28px;
+  }
+  header.hero .lead-chip {
+    display: inline-block; background: rgba(28,181,211,0.12); border: 1px solid rgba(28,181,211,0.45);
+    color: #67e8f9; padding: 6px 12px; border-radius: 14px;
+    font-size: 13px; font-family: ui-monospace, monospace; margin-right: 8px; margin-bottom: 6px;
+  }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 56px 32px 96px; }
+
+  h2 {
+    font-size: 26px; margin: 0 0 18px;
+    letter-spacing: -0.005em; font-weight: 700;
+    border-left: 4px solid var(--accent); padding-left: 14px;
+  }
+  h3 { font-size: 17px; margin: 24px 0 6px; color: var(--ink); }
+
+  .intro { font-size: 18px; color: #334155; max-width: 820px; margin-bottom: 40px; }
+  .intro p { margin: 0 0 14px; }
+
+  .demos {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 22px;
+    margin: 16px 0 40px;
+  }
+  @media (max-width: 820px) { .demos { grid-template-columns: 1fr; } }
+
+  .demos .card {
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    padding: 24px 28px;
+    background: linear-gradient(180deg, #ffffff 0%, rgba(28,181,211,0.06) 100%);
+    box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+    transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s, background 0.12s;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+    text-decoration: none; color: inherit;
+  }
+  .demos .card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dark) 100%);
+  }
+  .demos .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(28,181,211,0.18);
+    border-color: var(--accent-dark);
+    background: linear-gradient(180deg, #ffffff 0%, rgba(28,181,211,0.12) 100%);
+    text-decoration: none;
+  }
+  .demos .card .tag {
+    align-self: flex-start;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+    color: #fff; background: var(--accent);
+    padding: 4px 10px; border-radius: 10px; margin-bottom: 14px;
+  }
+  .demos .card h3 {
+    font-size: 24px; margin: 0 0 8px; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .demos .card .summary { color: #475569; font-size: 15px; line-height: 1.55; margin: 0 0 16px; }
+  .demos .card .stack {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
+  }
+  .demos .card .stack code {
+    background: rgba(28,181,211,0.08); color: #0e7490;
+    padding: 3px 8px; border-radius: 6px; font-size: 12px;
+    font-family: ui-monospace, monospace;
+    border: 1px solid rgba(28,181,211,0.20);
+  }
+  .demos .card .cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: #fff; background: var(--accent-dark);
+    padding: 10px 16px; border-radius: 8px;
+    font-weight: 700; font-size: 15px;
+    align-self: flex-start; margin-top: auto;
+    box-shadow: 0 2px 6px rgba(8,145,178,0.30);
+  }
+  .demos .card .cta::after { content: "→"; transition: transform 0.15s; }
+  .demos .card:hover .cta { background: #0f172a; }
+  .demos .card:hover .cta::after { transform: translateX(3px); }
+
+  .demos .card.soon {
+    border: 1px dashed var(--card-border);
+    background: var(--card-bg);
+    box-shadow: none;
+    cursor: default;
+  }
+  .demos .card.soon::before { background: rgba(15,23,42,0.10); }
+  .demos .card.soon:hover {
+    transform: none; box-shadow: none;
+    border-color: var(--card-border);
+    background: var(--card-bg);
+  }
+  .demos .card.soon .tag {
+    background: rgba(15,23,42,0.08); color: var(--muted);
+  }
+  .demos .card.soon h3 { color: var(--muted); }
+  .demos .card.soon .summary { color: var(--muted); }
+
+  .closing {
+    background: var(--navy); color: #cbd5e1; border-radius: 12px;
+    padding: 28px 32px; margin: 48px 0 0;
+  }
+  .closing h3 { color: #f8fafc; margin: 0 0 8px; font-size: 20px; }
+  .closing p { margin: 0 0 6px; }
+  .closing a { color: #67e8f9; }
+
+  footer {
+    max-width: 1100px; margin: 0 auto; padding: 32px;
+    border-top: 1px solid var(--line); color: var(--muted); font-size: 14px;
+    display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between;
+  }
+  footer a { color: var(--accent-dark); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Solo · Istio Ambient · Agentic Patterns</div>
+    <h1>Solo agentic deployment demos, best practices and patterns on Istio's ambient mesh.</h1>
+    <p class="sub">
+      A growing series of hands-on demos that show how to deploy, secure and operate agentic AI
+      workloads on Solo's stack alongside Istio Ambient — covering kagent, agentgateway, MCP,
+      A2A, and the runtime-defence story that holds when the model gets things wrong.
+    </p>
+    <span class="lead-chip">Solo Enterprise for Istio</span>
+    <span class="lead-chip">Istio Ambient · ztunnel + waypoint</span>
+    <span class="lead-chip">agentgateway</span>
+    <span class="lead-chip">kagent</span>
+  </div>
+</header>
+
+<main>
+
+<section class="intro">
+  <p>This is the index page for a series of demos, deployment patterns and best practices I'm
+  publishing as I work through real-world agentic AI use cases with Solo and Istio Ambient. Each
+  entry is its own repo with scripts, manifests and a written walkthrough — designed to run
+  locally on <b>kind</b> so anyone can replay them end-to-end.</p>
+  <p>More demos and patterns will land here over time. The first one is below.</p>
+</section>
+
+<h2>Demos in the series</h2>
+
+<div class="demos">
+
+  <a class="card" href="https://tjorourke.github.io/solo-demo-agentic-dora/index.html">
+    <span class="tag">01 · Live</span>
+    <h3>TrustUsBank — agentic DORA demo</h3>
+    <p class="summary">
+      A fake retail bank with an AI-powered customer-support chatbot driving three kagent agents
+      over A2A, each backed by MCP tool servers fronted by agentgateway. A third-party
+      currency-converter gets rug-pulled mid-prompt and tries to exfiltrate the customer's PII —
+      the mesh catches it at the wire, not the model. Single-cluster and multi-cluster walkthroughs.
+    </p>
+    <div class="stack">
+      <code>kagent</code>
+      <code>agentgateway</code>
+      <code>MCP rug-pull</code>
+      <code>DORA Article 17</code>
+      <code>kind</code>
+    </div>
+    <span class="cta">Open the demo</span>
+  </a>
+
+  <div class="card soon">
+    <span class="tag">More coming</span>
+    <h3>More demos &amp; patterns soon</h3>
+    <p class="summary">
+      Future entries will cover additional Solo agentic deployment patterns, multi-tenant agent
+      isolation, identity and policy patterns across clusters, and operational best practices for
+      running agentic workloads at scale on Istio Ambient.
+    </p>
+  </div>
+
+</div>
+
+<div class="closing">
+  <h3>Why this series</h3>
+  <p>Agentic AI workloads bring a new set of failure modes — prompt injection, supply-chain
+  rug-pulls, runaway tool calls — that live <i>below</i> the model layer and need infrastructure
+  defences to match. Each demo here is a concrete answer to one of those questions, runnable on
+  your laptop.</p>
+</div>
+
+</main>
+
+<footer>
+  <div>Built by <a href="mailto:tom@orourkeonline.co.uk">Tom O'Rourke</a> · demos run locally on kind.</div>
+  <div><a href="https://github.com/tjorourke">GitHub</a></div>
+</footer>
+
+</body>
+</html>
