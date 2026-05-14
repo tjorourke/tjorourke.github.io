@@ -958,9 +958,9 @@ EOF</code></pre>
   -n bookinfo --context $CLUSTER1 -- curl -s httpbin.org/get</code></pre>
 </div>
 
-<img src="gloo-graph-vm1.png"
+<img id="gloo-graph" src="gloo-graph-vm1.png"
      alt="Gloo Platform graph showing both clusters, vm1 on cluster1, egress-gateway routing to httpbin.org, and cross-cluster mTLS edges"
-     style="width:100%;border-radius:10px;border:1px solid var(--card-border);margin:16px 0 8px">
+     style="width:100%;border-radius:10px;border:1px solid var(--card-border);margin:16px 0 8px;cursor:zoom-in">
 <p style="color:#475569;font-size:14px">
   cluster1 (bottom): bookinfo, vm1 (with istio-eastwest), and egress-gateway routing <code>ratings-v1</code> traffic out to <code>httpbin.org</code>.
   cluster2 (top): productpage-v1, details-v1, reviews-v1 reachable cross-cluster via mTLS. Lock icons on every edge confirm mutual TLS end-to-end.
@@ -1035,6 +1035,19 @@ document.querySelectorAll('pre').forEach(function(pre) {
     });
   });
 });
+</script>
+<style>
+  #gloo-graph.expanded {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    object-fit: contain; background: rgba(0,0,0,0.85);
+    border-radius: 0; border: none; margin: 0; z-index: 9999;
+    cursor: zoom-out;
+  }
+</style>
+<script>
+  document.getElementById('gloo-graph').addEventListener('click', function() {
+    this.classList.toggle('expanded');
+  });
 </script>
 </body>
 </html>
