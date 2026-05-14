@@ -451,98 +451,31 @@ export AGW_VERSION=2.3.0</code></pre>
 <div class="step">
   <div class="step-num">STEP 01</div>
   <h3>Create east-ag + west-ag kind clusters</h3>
-  <p>Non-overlapping CIDRs prevent cross-cluster routing conflicts. The <code>-ag</code> suffix means both demos can run simultaneously without cluster-name collisions.</p>
+  <p>The script reads <code>$CLUSTER1</code> and <code>$CLUSTER2</code>, strips the <code>kind-</code> prefix to get the cluster name, and looks up the matching config in <code>kind/</code>. The <code>-ag</code> suffix means this demo can run alongside the istio-gw demo without name collisions.</p>
+<pre><code>./scripts/01-clusters.sh</code></pre>
+  <p>Expected output:</p>
+<pre><code>  ✓ [east-ag] ready
+  ✓ [west-ag] ready
 
-  <h4>kind/east-ag.yaml</h4>
-<pre><code>cat &gt; kind/east-ag.yaml &lt;&lt;'EOF'
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-name: east-ag
-networking:
-  podSubnet: "10.10.0.0/16"
-  serviceSubnet: "10.96.0.0/16"
-nodes:
-  - role: control-plane
-  - role: worker
-EOF</code></pre>
-
-  <h4>kind/west-ag.yaml</h4>
-<pre><code>cat &gt; kind/west-ag.yaml &lt;&lt;'EOF'
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-name: west-ag
-networking:
-  podSubnet: "10.20.0.0/16"
-  serviceSubnet: "10.97.0.0/16"
-nodes:
-  - role: control-plane
-  - role: worker
-EOF</code></pre>
-
-  <h4>Create</h4>
-<pre><code>kind create cluster --config kind/east-ag.yaml
-kind create cluster --config kind/west-ag.yaml
-
-kubectl config get-contexts | grep -E "east-ag|west-ag"</code></pre>
+Contexts available:
+*  kind-east-ag   ← $CLUSTER1
+   kind-west-ag   ← $CLUSTER2</code></pre>
 </div>
 
 <!-- ── STEP 02 ── -->
 <div class="step">
   <div class="step-num">STEP 02</div>
   <h3>Install MetalLB — LoadBalancer IPs on kind</h3>
-  <p>Replaces the cloud LB. Detects the docker kind network CIDR at runtime and assigns non-overlapping pools so both clusters get stable IPs.</p>
-<pre><code># Install MetalLB on both clusters
-for CTX in $CLUSTER1 $CLUSTER2; do
-  kubectl --context $CTX apply -f \
-    https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
-  kubectl --context $CTX -n metallb-system wait \
-    --for=condition=Ready pod -l app=metallb,component=controller \
-    --timeout=90s
-done
-
-# Detect IPv4 kind network base — use println so each subnet is on its own line,
-# then grep -v ':' to discard IPv6 (docker returns both). Without this filter the
-# base variable gets the IPv6 CIDR prepended, breaking the IP range.
-BASE=$(docker network inspect kind \
-  --format '{{range .IPAM.Config}}{{println .Subnet}}{{end}}' \
-  | grep -v ':' | head -1 | cut -d. -f1,2)
-echo "MetalLB base: $BASE"
-
-# east pool
-kubectl --context $CLUSTER1 apply -f - &lt;&lt;EOF
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: kind-pool
-  namespace: metallb-system
-spec:
-  addresses:
-  - ${BASE}.255.100-${BASE}.255.110
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: kind-l2
-  namespace: metallb-system
-EOF
-
-# west pool  (.120-.130 keeps this demo non-overlapping with istio-gw which uses .200-.230)
-kubectl --context $CLUSTER2 apply -f - &lt;&lt;EOF
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: kind-pool
-  namespace: metallb-system
-spec:
-  addresses:
-  - ${BASE}.255.120-${BASE}.255.130
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: kind-l2
-  namespace: metallb-system
-EOF</code></pre>
+  <p>Replaces the cloud LB. Detects the Docker kind network IPv4 CIDR at runtime and assigns non-overlapping pools. Pools are <code>.100–.110</code> (east-ag) and <code>.120–.130</code> (west-ag) — no overlap with the istio-gw demo's <code>.200–.230</code> range.</p>
+<pre><code>./scripts/02-metallb.sh</code></pre>
+  <p>Expected output:</p>
+<pre><code>  docker kind network: 172.22.0.0/16  (base: 172.22)
+  ✓ [east-ag] MetalLB controller ready
+  ✓ [west-ag] MetalLB controller ready
+  ✓ MetalLB pools configured  (east-ag .100-.110  /  west-ag .120-.130)</code></pre>
+  <div class="tip">
+    <strong>Why MetalLB?</strong> <code>cloud-provider-kind</code> has a macOS bug where it fails to write the assigned IP back to <code>status.loadBalancer.ingress</code>. MetalLB works reliably on both macOS and Linux.
+  </div>
 </div>
 
 <!-- ── STEP 03 ── -->
