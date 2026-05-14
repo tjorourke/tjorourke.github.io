@@ -289,11 +289,11 @@
         │                                               │
         ▼                                               ▼
   ┌────────────────────────────────────────────────────────────────────────────┐
-  │  kind-east                HBONE port 15008           kind-west             │
+  │  kind-east-ag              HBONE port 15008         kind-west-ag             │
   │                    ◄────────────────────────────►                          │
   │  pods: 10.10.0.0/16       Istio EW GW (fabric)       pods: 10.20.0.0/16  │
   │  svcs: 10.96.0.0/16                                   svcs: 10.97.0.0/16  │
-  │  lb:   .200–.210                                      lb:   .220–.230     │
+  │  lb:   .100–.110                                      lb:   .120–.130     │
   │                                                                            │
   │  ┌───────────────────────────┐        ┌───────────────────────────┐       │
   │  │ enterprise-agentgateway   │        │ enterprise-agentgateway   │       │
@@ -361,16 +361,16 @@
   </thead>
   <tbody>
     <tr>
-      <td><strong>east</strong> <span style="color:var(--muted);font-size:13px">($CLUSTER1)</span></td>
+      <td><strong>east-ag</strong> <span style="color:var(--muted);font-size:13px">($CLUSTER1)</span></td>
       <td><code>10.10.0.0/16</code></td>
       <td><code>10.96.0.0/16</code></td>
-      <td><code>&lt;base&gt;.255.200 – 210</code></td>
+      <td><code>&lt;base&gt;.255.100 – 110</code></td>
     </tr>
     <tr>
-      <td><strong>west</strong> <span style="color:var(--muted);font-size:13px">($CLUSTER2)</span></td>
+      <td><strong>west-ag</strong> <span style="color:var(--muted);font-size:13px">($CLUSTER2)</span></td>
       <td><code>10.20.0.0/16</code></td>
       <td><code>10.97.0.0/16</code></td>
-      <td><code>&lt;base&gt;.255.220 – 230</code></td>
+      <td><code>&lt;base&gt;.255.120 – 130</code></td>
     </tr>
   </tbody>
 </table>
@@ -440,7 +440,7 @@ export SOLO_ISTIO_LICENSE_KEY="eyJ..."
 export AGENTGATEWAY_LICENSE_KEY="eyJ..."
 
 # Version pins
-export ISTIO_VERSION=1.29.2-patch0-solo
+export ISTIO_VERSION=1.29.0-solo
 export ISTIO_VERSION_OPERATOR="${ISTIO_VERSION%-solo}"   # strips "-solo" for the operator
 export GLOO_OPERATOR_VERSION=0.5.2
 export GATEWAY_API_VERSION=v1.5.0
@@ -748,9 +748,9 @@ helm upgrade --install peering-eastwest \
   --wait</code></pre>
 
   <h4>Discover node IPs on the kind Docker bridge</h4>
-<pre><code>EAST_IP=$(docker inspect east-control-plane \
+<pre><code>EAST_IP=$(docker inspect east-ag-control-plane \
   --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
-WEST_IP=$(docker inspect west-control-plane \
+WEST_IP=$(docker inspect west-ag-control-plane \
   --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
 echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
 
@@ -1239,8 +1239,8 @@ EOF</code></pre>
 
 <!-- ── TEARDOWN ── -->
 <h2>Teardown</h2>
-<pre><code>kind delete cluster --name east
-kind delete cluster --name west
+<pre><code>kind delete cluster --name east-ag
+kind delete cluster --name west-ag
 rm -rf certs/</code></pre>
 
 <div class="closing">
