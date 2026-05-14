@@ -576,12 +576,8 @@ done</code></pre>
 <pre><code>ISTIO_REGISTRY=us-docker.pkg.dev/soloio-img/istio
 ISTIO_TAG="${ISTIO_VERSION%-solo}"   # strips "-solo" suffix
 
-# Match Docker host arch — arm64 on Apple Silicon, amd64 on Intel
-KIND_PLATFORM="linux/$(docker info --format '{{.Architecture}}' | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
-
 for IMG in pilot proxyv2 install-cni ztunnel; do
-  docker pull --quiet --platform "${KIND_PLATFORM}" "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}" 2>/dev/null \
-    || docker pull --platform "${KIND_PLATFORM}" "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}"
+  docker pull "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}"
 done
 
 for CTX in $CLUSTER1 $CLUSTER2; do
