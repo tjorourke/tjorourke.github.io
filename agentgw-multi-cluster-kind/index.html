@@ -567,30 +567,6 @@ done</code></pre>
   <h3>Install Solo Istio Ambient — Gloo Operator + ServiceMeshController</h3>
   <p>The Gloo Operator manages istiod + ztunnel + CNI as a single lifecycle. You declare what you want via a <code>ServiceMeshController</code> CR; the operator reconciles it.</p>
 
-  <div class="note">
-    <strong>Requires gcloud auth.</strong> Solo Istio images live at <code>us-docker.pkg.dev/soloio-img/istio</code>. Run <code>gcloud auth configure-docker us-docker.pkg.dev</code> before this step. The pre-pull below caches images locally and loads them into kind so the clusters don't need direct registry access.
-  </div>
-
-  <h4>Pre-pull Solo Istio images and load into kind</h4>
-  <p>kind nodes can't reach <code>us-docker.pkg.dev</code> directly. Pull to Docker, then load into each node — this avoids ImagePullBackOff errors later.</p>
-<pre><code>ISTIO_REGISTRY=us-docker.pkg.dev/soloio-img/istio
-ISTIO_TAG="${ISTIO_VERSION%-solo}"   # strips "-solo" suffix
-
-for IMG in pilot proxyv2 install-cni ztunnel; do
-  docker pull "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}"
-done
-
-# `kind load docker-image` uses `ctr import --all-platforms` internally and
-# fails when only one platform's layers are cached locally (multi-platform manifest).
-# `docker save | kind load image-archive` exports only the cached layers and
-# imports without --all-platforms, so it works regardless of host arch.
-for CTX in $CLUSTER1 $CLUSTER2; do
-  for IMG in pilot proxyv2 install-cni ztunnel; do
-    docker save "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}" \
-      | kind load image-archive /dev/stdin --name "${CTX#kind-}"
-  done
-done</code></pre>
-
   <h4>Install Gloo Operator on both clusters</h4>
 <pre><code>for CTX in $CLUSTER1 $CLUSTER2; do
   helm upgrade --install gloo-operator \
