@@ -1095,6 +1095,21 @@ EOF</code></pre>
   </p>
 </div>
 
+<h2>Teardown: delete the clusters</h2>
+
+<p>When you're done, delete both kind clusters using the same variables you set during setup. Each command removes the cluster, its kubeconfig context, and the associated Docker networks.</p>
+
+<pre>kind delete cluster --name "${CLUSTER1#kind-}"
+kind delete cluster --name "${CLUSTER2#kind-}"</pre>
+
+<p>Confirm nothing is left:</p>
+
+<pre>kind get clusters</pre>
+
+<p>If you also want to remove the shared local registry:</p>
+
+<pre>docker rm -f kind-registry</pre>
+
 <div class="closing">
   <h3>Resources</h3>
   <ul>
