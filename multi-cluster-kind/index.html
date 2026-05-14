@@ -597,83 +597,97 @@ kubectl --context=$CLUSTER1 exec -it \
   <h3>Bring VMs into the Mesh — Step 1: Generate the Bootstrap Configuration</h3>
 </div>
 
+<div class="note">
+  <strong>First: you need Solo's istioctl, not the upstream one.</strong>
+  <code>istioctl bootstrap</code> is a Solo-specific subcommand that does not exist in the
+  upstream binary installed by <code>brew install istioctl</code>.
+  Confirm you have the right one: <code>istioctl bootstrap --help</code> should succeed.
+  If it says <em>unknown command</em>, download Solo's binary using the workshop
+  prereqs step before continuing.
+</div>
+
+<p style="color:#475569;margin-top:16px">
+  Once you have Solo's istioctl, the <code>bootstrap</code> command generates a
+  <strong>double base64-encoded JSON envelope</strong> — the decoded structure looks like:
+</p>
+<pre><code>{
+  "url":            "istiod-address:15012",
+  "caCert":         "...",        // istiod CA root cert
+  "namespace":      "vm1",
+  "serviceAccount": "vm1",
+  "token":          "eyJ..."      // Kubernetes SA JWT
+}</code></pre>
+
 <p style="color:#475569">
-  The token embedded inside the value that <code>istioctl bootstrap</code> generates does not
-  carry the <code>istio-ca</code> audience that ztunnel requires for authentication on kind clusters.
-  The symptom is ztunnel starting but immediately failing to connect to istiod with an
-  "invalid audience" error.
+  The embedded <code>token</code> JWT is created via the Kubernetes TokenRequest API with
+  audience <code>istio-ca</code> — this part is correct. The bug on kind is more subtle:
+  on kind, <code>istioctl bootstrap</code> discovers the istiod address by looking for a
+  LoadBalancer Service. If it picks the internal ClusterIP instead of the MetalLB IP,
+  ztunnel starts but can't reach istiod from outside the cluster. Additionally, the generated
+  token has a short TTL (typically 1 hour), which may expire before you complete the setup steps.
 </p>
 
-<div class="note">
-  <strong>Root cause:</strong> The BOOTSTRAP_TOKEN is a double-base64 wrapped JSON envelope.
-  The inner <code>token</code> field is a Kubernetes service account token whose audience was not
-  set to <code>istio-ca</code> at generation time. kind's API server does not use the same
-  audience defaulting as managed cloud clusters.
-</div>
+<p style="color:#475569">
+  The workaround below builds the token envelope manually so you control both the istiod
+  address (the MetalLB IP) and the token duration (24 h).
+</p>
 
 <div class="step">
   <div class="step-num">WORKAROUND 1</div>
-  <h3>Generate the bootstrap token</h3>
-  <p>Run this on your local machine (not inside the VM container). Make sure the <code>vm1</code>
-  namespace and service account exist first:</p>
+  <h3>Create the namespace and service account</h3>
   <pre><code>kubectl --context=$CLUSTER1 create namespace vm1
-kubectl --context=$CLUSTER1 create serviceaccount vm1 -n vm1
-
-istioctl --context=$CLUSTER1 bootstrap --namespace vm1 --service-account vm1</code></pre>
-  <p>Copy the value of <code>BOOTSTRAP_TOKEN</code> from the output.</p>
+kubectl --context=$CLUSTER1 create serviceaccount vm1 -n vm1</code></pre>
 </div>
 
 <div class="step">
   <div class="step-num">WORKAROUND 2</div>
-  <h3>Decode the token envelope and inspect it</h3>
-  <p>The token is base64-encoded JSON. Decode it to see the embedded fields:</p>
-  <pre><code>echo "$BOOTSTRAP_TOKEN" | base64 -d | python3 -m json.tool</code></pre>
-  <p>You'll see a structure like:</p>
-  <pre><code>{
-  "token": "&lt;base64-encoded-inner-token&gt;",
-  "ca_cert": "...",
-  "proxy_config": { ... }
-}</code></pre>
-  <p>The inner <code>token</code> field is itself base64-encoded. Decode it to confirm it lacks the
-  <code>istio-ca</code> audience:</p>
-  <pre><code>echo "$BOOTSTRAP_TOKEN" | base64 -d | python3 -c \
-  "import json,sys,base64; d=json.load(sys.stdin); print(base64.b64decode(d['token']).decode())"</code></pre>
+  <h3>Collect the ingredients</h3>
+  <p>Get the istiod MetalLB IP and the CA root cert — these go into the JSON envelope.</p>
+  <pre><code># istiod external address (MetalLB IP on CLUSTER1)
+ISTIOD_ADDR=$(kubectl --context=$CLUSTER1 get svc -n istio-system \
+  -l istio.io/expose-istiod \
+  -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+echo "istiod: $ISTIOD_ADDR"
+
+# CA root cert as a JSON-safe string (no newlines)
+CA_CERT=$(kubectl --context=$CLUSTER1 get configmap istio-ca-root-cert \
+  -n istio-system -o jsonpath='{.data.root-cert\.pem}' | python3 -c \
+  "import sys,json; print(json.dumps(sys.stdin.read()))")
+
+# 24-hour SA token with istio-ca audience
+NEW_TOKEN=$(kubectl --context=$CLUSTER1 create token vm1 \
+  -n vm1 --audience istio-ca --duration 24h)</code></pre>
 </div>
 
 <div class="step">
   <div class="step-num">WORKAROUND 3</div>
-  <h3>Generate a replacement token with the correct audience</h3>
-  <p>Create a new token for the <code>vm1</code> service account with <code>istio-ca</code>
-  as the audience and a 24 h duration:</p>
-  <pre><code>NEW_TOKEN=$(kubectl --context=$CLUSTER1 create token vm1 \
-  -n vm1 \
-  --audience istio-ca \
-  --duration 24h)</code></pre>
+  <h3>Build and double-encode the bootstrap token</h3>
+  <pre><code>BOOTSTRAP_TOKEN=$(python3 -c "
+import json, base64, os
+envelope = {
+    'url':            os.environ['ISTIOD_ADDR'] + ':15012',
+    'caCert':         os.environ['CA_CERT'],
+    'namespace':      'vm1',
+    'serviceAccount': 'vm1',
+    'token':          os.environ['NEW_TOKEN'],
+    'remote':         True,
+}
+raw = json.dumps(envelope)
+print(base64.b64encode(base64.b64encode(raw.encode()).decode().encode()).decode())
+" ISTIOD_ADDR="$ISTIOD_ADDR" CA_CERT="$CA_CERT" NEW_TOKEN="$NEW_TOKEN")
+
+echo "BOOTSTRAP_TOKEN set (length: ${#BOOTSTRAP_TOKEN})"</code></pre>
+  <div class="tip">
+    The ECS integration docs confirm this double-base64 structure: Solo's docs show
+    <code>echo -n '...' | base64 | base64</code> as the pattern for constructing BOOTSTRAP_TOKEN.
+  </div>
 </div>
 
 <div class="step">
   <div class="step-num">WORKAROUND 4</div>
-  <h3>Patch the token envelope and re-encode</h3>
-  <p>Replace the inner <code>token</code> field with the new token, then re-base64 the entire
-  envelope. Save it to a shell variable you can paste into the VM container:</p>
-  <pre><code># Replace token field and re-encode
-PATCHED_BOOTSTRAP_TOKEN=$(echo "$BOOTSTRAP_TOKEN" | base64 -d | python3 -c "
-import json, sys, base64
-d = json.load(sys.stdin)
-import os
-new_tok = os.environ['NEW_TOKEN']
-d['token'] = base64.b64encode(new_tok.encode()).decode()
-print(json.dumps(d))
-" NEW_TOKEN="$NEW_TOKEN" | base64 | tr -d '\n')
-
-echo "PATCHED_BOOTSTRAP_TOKEN=$PATCHED_BOOTSTRAP_TOKEN"</code></pre>
-</div>
-
-<div class="step">
-  <div class="step-num">WORKAROUND 5</div>
-  <h3>Use the patched token when running ztunnel on the VM</h3>
-  <p>Use <code>PATCHED_BOOTSTRAP_TOKEN</code> wherever the workshop says
-  <code>BOOTSTRAP_TOKEN</code>. See the mock-VM section below for the full ztunnel run command.</p>
+  <h3>Use this token when running ztunnel on the VM</h3>
+  <p>Use <code>$BOOTSTRAP_TOKEN</code> from the step above in the ztunnel <code>docker run</code>
+  command in the mock-VM section below — skip the upstream Step 1–3 entirely.</p>
 </div>
 
 
