@@ -890,7 +890,11 @@ helm upgrade --install enterprise-agentgateway \
   --wait</code></pre>
 
   <h4>Label agentgateway-system for Ambient + network topology</h4>
-  <p>Every workload namespace must carry the <code>topology.istio.io/network</code> label — without it istiod can't classify pod networks and cross-cluster endpoint rewriting never fires. The <code>istio.io/dataplane-mode=ambient</code> label enrolls agentgateway pods in the ztunnel data plane.</p>
+  <p>Every workload namespace — including <code>agentgateway-system</code> — needs these two labels:</p>
+  <ul style="color:#475569;margin:0 0 14px;padding-left:22px;">
+    <li style="margin-bottom:8px"><code>istio.io/dataplane-mode=ambient</code> — enrolls all pods in this namespace into the Ambient mesh so ztunnel intercepts their traffic. Without it, agentgateway pods sit outside the mesh and can't use HBONE to reach pods in the other cluster.</li>
+    <li><code>topology.istio.io/network=&lt;name&gt;</code> — tells istiod which network these pods belong to. istiod uses this to decide routing: same network → go direct; different network → route via the east-west gateway. Without it, cross-cluster endpoint rewriting never fires.</li>
+  </ul>
 <pre><code>kubectl --context $CLUSTER1 label namespace agentgateway-system \
   istio.io/dataplane-mode=ambient \
   topology.istio.io/network=${CLUSTER1#kind-} \
