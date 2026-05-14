@@ -560,6 +560,20 @@ done</code></pre>
   kubectl --context $CTX apply -f \
     https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 done</code></pre>
+
+  <div class="note">
+    <strong>Remove the version-guard policy before installing the Gloo Operator.</strong>
+    Gateway API v1.5.0 ships a <code>ValidatingAdmissionPolicy</code> (<code>safe-upgrades.gateway.networking.k8s.io</code>)
+    that blocks patching these CRDs with an older bundle. The Gloo Operator bundles its own older copy
+    and is denied on every reconcile — leaving <code>ServiceMeshController</code> stuck at <code>PENDING</code> indefinitely.
+    Delete the guard now; the CRDs themselves stay intact.
+  </div>
+<pre><code>for CTX in $CLUSTER1 $CLUSTER2; do
+  kubectl --context $CTX delete validatingadmissionpolicy \
+    safe-upgrades.gateway.networking.k8s.io --ignore-not-found
+  kubectl --context $CTX delete validatingadmissionpolicybinding \
+    safe-upgrades.gateway.networking.k8s.io --ignore-not-found
+done</code></pre>
 </div>
 
 <!-- ── STEP 06 ── -->
