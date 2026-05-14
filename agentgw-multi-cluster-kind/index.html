@@ -796,15 +796,25 @@ istioctl create-remote-secret \
   kubectl --context $CLUSTER1 apply -f -</code></pre>
 
   <h4>Verify peering</h4>
-<pre><code># Both should show "Number of remote clusters: 1"
-kubectl --context $CLUSTER1 -n istio-system logs deploy/istiod-gloo \
-  | grep -i "remote cluster" | tail -3
-kubectl --context $CLUSTER2 -n istio-system logs deploy/istiod-gloo \
-  | grep -i "remote cluster" | tail -3
+<pre><code>istioctl --context $CLUSTER1 multicluster check</code></pre>
 
-# Check multicluster status (requires Solo's istioctl)
-istioctl --context $CLUSTER1 multicluster check
-istioctl --context $CLUSTER2 multicluster check</code></pre>
+  <p>Expected output:</p>
+<pre><code>✅ Incompatible Environment Variable Check: all relevant environment variables are valid
+⚠️  License Check: found invalid license for multicluster
+✅ Pod Check (istiod): all pods healthy
+✅ Pod Check (ztunnel): all pods healthy
+✅ Pod Check (eastwest gateway): all pods healthy
+✅ Gateway Check: all eastwest gateways programmed
+     ✅ istio-eastwest/istio-eastwest available at &lt;MetalLB IP&gt;
+✅ Peers Check: all clusters connected
+     ✅ Connected to &lt;peer cluster&gt; via &lt;node IP&gt;
+ℹ️  Shared Services Check: no globally shared services found
+ℹ️  Intermediate Certs Compatibility Check: root certificate SHA256 sum: &lt;hash&gt;
+✅ Network Configuration Check: all network configurations are valid</code></pre>
+
+  <div class="note">
+    <strong>License warning is expected.</strong> The <code>⚠️ License Check: found invalid license for multicluster</code> warning means your <code>SOLO_ISTIO_LICENSE_KEY</code> covers Solo Istio but not the full multicluster entitlement (GlobalService/Segment CRDs). Basic HBONE peering and failover still work — the <strong>Peers Check ✅</strong> is what matters.
+  </div>
 </div>
 
 <!-- ── STEP 08 ── -->
