@@ -563,16 +563,13 @@ done</code></pre>
   <div class="step-num">UPSTREAM SECTION</div>
   <h3>Peer the clusters together</h3>
   <p>
-    The upstream README goes straight from the <code>ServiceMeshController</code> apply to
-    <code>istioctl multicluster expose</code>. It is missing a label step — the Gloo Operator
-    does not automatically label the <code>istio-gateways</code> namespace with
-    <code>topology.istio.io/network</code>, and <code>istioctl multicluster expose</code>
-    looks for that label to determine the network name. Without it you get:
+    Run <code>istioctl multicluster expose</code> only after istiod is fully ready — it queries
+    istiod directly to determine the network name. If you run it too early you get:
   </p>
   <pre><code>Error: failed to find network: no "topology.istio.io/network" label found</code></pre>
-  <p>Label the namespace on both clusters first, then run the expose commands:</p>
-  <pre><code>kubectl --context=${CLUSTER1} label namespace istio-gateways topology.istio.io/network=cluster1
-kubectl --context=${CLUSTER2} label namespace istio-gateways topology.istio.io/network=cluster2
+  <p>Wait for all istiod pods to be <code>Running</code> first:</p>
+  <pre><code>kubectl --context=${CLUSTER1} -n istio-system wait --for=condition=ready pod -l app=istiod --timeout=120s
+kubectl --context=${CLUSTER2} -n istio-system wait --for=condition=ready pod -l app=istiod --timeout=120s
 
 istioctl --context=${CLUSTER1} multicluster expose -n istio-gateways
 istioctl --context=${CLUSTER2} multicluster expose -n istio-gateways</code></pre>
