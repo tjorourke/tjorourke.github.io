@@ -13,8 +13,8 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-CLUSTER1="${CLUSTER1:-kind-east}"
-CLUSTER2="${CLUSTER2:-kind-west}"
+[[ -n "${CLUSTER1:-}" ]] || die "CLUSTER1 is not set — run: export CLUSTER1=kind-east"
+[[ -n "${CLUSTER2:-}" ]] || die "CLUSTER2 is not set — run: export CLUSTER2=kind-west"
 
 log()    { echo "  → $*"; }
 log_ok() { echo "  ✓ $*"; }
@@ -41,5 +41,4 @@ echo
 echo "Contexts:"
 kubectl config get-contexts 2>/dev/null | grep -E "${CLUSTER1}|${CLUSTER2}" || true
 echo
-echo "Next: export CLUSTER1=${CLUSTER1} CLUSTER2=${CLUSTER2} (if not already set)"
-echo "Then: ./scripts/02-metallb.sh"
+echo "Next: ./scripts/02-metallb.sh"
