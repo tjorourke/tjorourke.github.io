@@ -783,83 +783,17 @@ echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
 
   <h4>Cross-apply remote secrets (control-plane discovery)</h4>
   <p>Without these, istiod's "Number of remote clusters" stays at 0 and cross-cluster services never get endpoints.</p>
-<pre><code># Generate long-lived tokens for the istio-reader SA on each cluster
-EAST_TOKEN=$(kubectl --context $CLUSTER1 -n istio-system \
-  create token istio-reader-service-account --duration=8760h)
-EAST_SERVER=$(kubectl --context $CLUSTER1 config view \
-  --minify --flatten -o jsonpath='{.clusters[0].cluster.server}')
-EAST_CA=$(kubectl --context $CLUSTER1 config view \
-  --minify --flatten -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+<pre><code># East's credentials onto west
+istioctl create-remote-secret \
+  --context $CLUSTER1 \
+  --name $NAME1 | \
+  kubectl --context $CLUSTER2 apply -f -
 
-WEST_TOKEN=$(kubectl --context $CLUSTER2 -n istio-system \
-  create token istio-reader-service-account --duration=8760h)
-WEST_SERVER=$(kubectl --context $CLUSTER2 config view \
-  --minify --flatten -o jsonpath='{.clusters[0].cluster.server}')
-WEST_CA=$(kubectl --context $CLUSTER2 config view \
-  --minify --flatten -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
-
-C1="${CLUSTER1#kind-}"
-C2="${CLUSTER2#kind-}"
-
-# Apply east's credentials onto west
-kubectl --context $CLUSTER2 apply -f - &lt;&lt;EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-remote-secret-${C1}
-  namespace: istio-system
-  labels:
-    istio.io/cluster: "${C1}"
-    networking.istio.io/remote: "true"
-type: Opaque
-stringData:
-  ${C1}: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - cluster:
-        certificate-authority-data: ${EAST_CA}
-        server: ${EAST_SERVER}
-      name: ${C1}
-    contexts:
-    - context: {cluster: ${C1}, user: ${C1}}
-      name: ${C1}
-    current-context: ${C1}
-    users:
-    - name: ${C1}
-      user:
-        token: ${EAST_TOKEN}
-EOF
-
-# Apply west's credentials onto east
-kubectl --context $CLUSTER1 apply -f - &lt;&lt;EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-remote-secret-${C2}
-  namespace: istio-system
-  labels:
-    istio.io/cluster: "${C2}"
-    networking.istio.io/remote: "true"
-type: Opaque
-stringData:
-  ${C2}: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - cluster:
-        certificate-authority-data: ${WEST_CA}
-        server: ${WEST_SERVER}
-      name: ${C2}
-    contexts:
-    - context: {cluster: ${C2}, user: ${C2}}
-      name: ${C2}
-    current-context: ${C2}
-    users:
-    - name: ${C2}
-      user:
-        token: ${WEST_TOKEN}
-EOF</code></pre>
+# West's credentials onto east
+istioctl create-remote-secret \
+  --context $CLUSTER2 \
+  --name $NAME2 | \
+  kubectl --context $CLUSTER1 apply -f -</code></pre>
 
   <h4>Verify peering</h4>
 <pre><code># Both should show "Number of remote clusters: 1"
