@@ -422,12 +422,6 @@
       <td>MetalLB IP is on Docker bridge — not reachable from macOS host. Use <code>kubectl port-forward</code> instead — see "Workshop fixes" section</td>
     </tr>
     <tr>
-      <td>VM bootstrap token</td>
-      <td>Requires Solo's <code>istioctl</code>; embedded token has wrong audience for VM XDS auth</td>
-      <td class="vs">→</td>
-      <td>See "BOOTSTRAP_TOKEN fix" section — decode, replace inner token with <code>audience: istio-ca</code>, re-encode</td>
-    </tr>
-    <tr>
       <td>VM workload</td>
       <td>A real bare-metal or cloud VM</td>
       <td class="vs">→</td>
@@ -693,100 +687,6 @@ kubectl --context=$CLUSTER1 exec -it \
 </div>
 
 
-<!-- ── FIX 5: BOOTSTRAP TOKEN ── -->
-<h2>BOOTSTRAP_TOKEN fix</h2>
-
-<div class="step" style="margin-bottom:24px">
-  <div class="step-num">UPSTREAM SECTION</div>
-  <h3>Bring VMs into the Mesh — Step 1: Generate the Bootstrap Configuration</h3>
-</div>
-
-<div class="note">
-  <strong>You need Solo's istioctl, not the upstream one.</strong>
-  <code>istioctl bootstrap</code> is a Solo-specific subcommand — the upstream binary doesn't have it.
-  Install Solo's istioctl by following the prereqs in Ram's workshop, then confirm you're using the right binary before continuing:
-  <pre style="margin:10px 0 0;background:#0f172a;border:none;padding:12px 16px;color:#e2e8f0"><code>istioctl bootstrap --help   # must succeed — if "unknown command", you're using upstream istioctl</code></pre>
-  If you have multiple <code>istioctl</code> binaries, make sure Solo's is first on your PATH:
-  <pre style="margin:6px 0 0;background:#0f172a;border:none;padding:12px 16px;color:#e2e8f0"><code>export PATH=/path/to/solo-istioctl/bin:$PATH</code></pre>
-</div>
-
-<p style="color:#475569;margin-top:16px">
-  The <code>bootstrap</code> command generates a double base64-encoded JSON envelope containing
-  the istiod URL, CA cert, and a service account token. The embedded token is a legacy SA Secret
-  token with <code>aud: kubernetes.default.svc.cluster.local</code>, but istiod's VM XDS
-  authenticator validates tokens against <code>audience: istio-ca</code> — these never match.
-</p>
-<div class="note" style="margin-top:0">
-  <strong>Why does this fail here but not in Ram's workshop?</strong>
-  On GKE/EKS, standard upstream Istio defaults to <code>jwtPolicy: third-party-jwt</code>
-  on clusters that support the TokenRequest API. In that mode, <code>istioctl bootstrap</code>
-  generates a projected token already bound to <code>audience: istio-ca</code> — the
-  right audience reaches istiod and no workaround is needed.
-  Here, the Gloo Operator sets <code>PILOT_JWT_POLICY=first-party-jwt</code> on istiod,
-  which causes <code>istioctl bootstrap</code> to fall back to the legacy SA Secret token
-  with the wrong audience. This would fail on GKE/EKS too with the same Gloo Operator
-  configuration — it is not a kind-specific quirk.
-  The fix belongs in Solo's <code>istioctl bootstrap</code>: it should call the TokenRequest
-  API with <code>audiences: ["istio-ca"]</code> rather than reading from the SA Secret.
-  (<a href="https://github.com/istio/istio/issues/31964" style="color:#92400e">istio#31964</a>,
-  <a href="https://github.com/istio/istio/issues/34293" style="color:#92400e">istio#34293</a>)
-</div>
-<p style="color:#475569">
-  The workaround decodes the envelope, replaces just the token field with a properly scoped
-  TokenRequest token, and re-encodes it.
-</p>
-
-<div class="step">
-  <div class="step-num">WORKAROUND 1</div>
-  <h3>Create the namespace and service account</h3>
-  <p>Confirm MetalLB has assigned an IP to the east-west gateway before generating the token:</p>
-  <pre><code># Should show a MetalLB IP — if blank, wait for Istio to install the east-west GW
-kubectl --context=$CLUSTER1 get svc -A \
-  -l istio.io/expose-istiod -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'
-
-kubectl --context=$CLUSTER1 create namespace vm1
-kubectl --context=$CLUSTER1 create serviceaccount vm1 -n vm1</code></pre>
-</div>
-
-<div class="step">
-  <div class="step-num">WORKAROUND 2</div>
-  <h3>Generate the raw bootstrap token</h3>
-  <pre><code>export PATH=~/.istioctl/bin:$PATH
-
-BOOTSTRAP_TOKEN=$(istioctl --context=$CLUSTER1 \
-  bootstrap --namespace vm1 --service-account vm1)
-
-# Verify the embedded URL is the east MetalLB IP:
-echo "$BOOTSTRAP_TOKEN" | base64 -d | base64 -d | python3 -m json.tool | grep url</code></pre>
-  <p>Expected: a URL pointing to your east cluster's MetalLB IP on port 15012, e.g. <code>"url": "https://&lt;east-gw-ip&gt;:15012"</code>.</p>
-</div>
-
-<div class="step">
-  <div class="step-num">WORKAROUND 3</div>
-  <h3>Replace the embedded token and re-encode</h3>
-  <p>Generate a proper TokenRequest token with <code>audience: istio-ca</code> and splice it into
-  the decoded envelope:</p>
-  <pre><code>export NEW_TOKEN=$(kubectl --context=$CLUSTER1 create token vm1 \
-  -n vm1 --audience istio-ca --duration 24h)
-
-BOOTSTRAP_TOKEN=$(echo "$BOOTSTRAP_TOKEN" | base64 -d | base64 -d | python3 -c "
-import sys, json, base64, os
-envelope = json.load(sys.stdin)
-envelope['token'] = os.environ['NEW_TOKEN']
-raw = json.dumps(envelope)
-print(base64.b64encode(base64.b64encode(raw.encode()).decode().encode()).decode())
-")
-echo "BOOTSTRAP_TOKEN patched (length: ${#BOOTSTRAP_TOKEN})"</code></pre>
-</div>
-
-<div class="step">
-  <div class="step-num">WORKAROUND 4</div>
-  <h3>Use this patched token when running ztunnel on the VM</h3>
-  <p>Use <code>$BOOTSTRAP_TOKEN</code> in the ztunnel <code>docker run</code> command in the
-  mock-VM section below — skip the upstream Step 1–3 entirely.</p>
-</div>
-
-
 <!-- ── MOCK VM ── -->
 <h2>Adding a mock VM (Docker)</h2>
 
@@ -862,11 +762,15 @@ docker run -d \
 
 <div class="step">
   <div class="step-num">VM STEP 4</div>
-  <h3>Generate and patch the bootstrap token</h3>
-  <p>
-    Follow the <strong>BOOTSTRAP_TOKEN fix</strong> section above to generate
-    <code>PATCHED_BOOTSTRAP_TOKEN</code>. Then set it in your shell before the next step.
-  </p>
+  <h3>Generate the bootstrap token</h3>
+  <p>Run this from your host shell (not inside the VM). Requires Solo's <code>istioctl</code>:</p>
+  <pre><code>export PATH=~/.istioctl/bin:$PATH
+
+BOOTSTRAP_TOKEN=$(istioctl --context=$CLUSTER1 \
+  bootstrap --namespace vm1 --service-account vm1)
+
+echo "BOOTSTRAP_TOKEN length: ${#BOOTSTRAP_TOKEN}"</code></pre>
+  <p>Copy the value of <code>$BOOTSTRAP_TOKEN</code> — you'll paste it inside the VM in the next step.</p>
 </div>
 
 <div class="step">
@@ -881,7 +785,7 @@ docker run -d \
     east-west gateway rather than trying a direct pod-to-pod path.
   </p>
   <p>First, set the token (replace with your patched value):</p>
-  <pre><code>export BOOTSTRAP_TOKEN="&lt;paste PATCHED_BOOTSTRAP_TOKEN here&gt;"</code></pre>
+  <pre><code>export BOOTSTRAP_TOKEN="&lt;paste BOOTSTRAP_TOKEN here&gt;"</code></pre>
   <p>Then run ztunnel:</p>
   <pre><code>docker run -d \
   --name ztunnel \
