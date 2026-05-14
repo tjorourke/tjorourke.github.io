@@ -429,10 +429,13 @@
   <div class="step-num">STEP 00</div>
   <h3>Set environment variables</h3>
   <p>Set these in every terminal tab before you begin — all commands below reference them.</p>
-<pre><code>export CLUSTER1=kind-east
-export CLUSTER2=kind-west
+<pre><code># Cluster names — suffixed -ag so this demo can run alongside the istio-gw demo
+export CLUSTER1=kind-east-ag
+export CLUSTER2=kind-west-ag
 
 # Solo licences — source your secrets file or paste values directly
+source /path/to/secrets-envs.sh
+# or paste:
 export SOLO_ISTIO_LICENSE_KEY="eyJ..."
 export AGENTGATEWAY_LICENSE_KEY="eyJ..."
 
@@ -447,14 +450,14 @@ export AGW_VERSION=2.3.0</code></pre>
 <!-- ── STEP 01 ── -->
 <div class="step">
   <div class="step-num">STEP 01</div>
-  <h3>Create east + west kind clusters</h3>
-  <p>Non-overlapping CIDRs prevent cross-cluster routing conflicts. Both clusters land on the same Docker bridge so MetalLB IPs are reachable between them.</p>
+  <h3>Create east-ag + west-ag kind clusters</h3>
+  <p>Non-overlapping CIDRs prevent cross-cluster routing conflicts. The <code>-ag</code> suffix means both demos can run simultaneously without cluster-name collisions.</p>
 
-  <h4>kind/east.yaml</h4>
-<pre><code>cat &gt; kind/east.yaml &lt;&lt;'EOF'
+  <h4>kind/east-ag.yaml</h4>
+<pre><code>cat &gt; kind/east-ag.yaml &lt;&lt;'EOF'
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: east
+name: east-ag
 networking:
   podSubnet: "10.10.0.0/16"
   serviceSubnet: "10.96.0.0/16"
@@ -463,11 +466,11 @@ nodes:
   - role: worker
 EOF</code></pre>
 
-  <h4>kind/west.yaml</h4>
-<pre><code>cat &gt; kind/west.yaml &lt;&lt;'EOF'
+  <h4>kind/west-ag.yaml</h4>
+<pre><code>cat &gt; kind/west-ag.yaml &lt;&lt;'EOF'
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: west
+name: west-ag
 networking:
   podSubnet: "10.20.0.0/16"
   serviceSubnet: "10.97.0.0/16"
@@ -477,10 +480,10 @@ nodes:
 EOF</code></pre>
 
   <h4>Create</h4>
-<pre><code>kind create cluster --config kind/east.yaml
-kind create cluster --config kind/west.yaml
+<pre><code>kind create cluster --config kind/east-ag.yaml
+kind create cluster --config kind/west-ag.yaml
 
-kubectl config get-contexts | grep -E "east|west"</code></pre>
+kubectl config get-contexts | grep -E "east-ag|west-ag"</code></pre>
 </div>
 
 <!-- ── STEP 02 ── -->
@@ -497,10 +500,12 @@ for CTX in $CLUSTER1 $CLUSTER2; do
     --timeout=90s
 done
 
-# Detect docker kind network base (e.g. 172.22 from 172.22.0.0/16)
+# Detect IPv4 kind network base — use println so each subnet is on its own line,
+# then grep -v ':' to discard IPv6 (docker returns both). Without this filter the
+# base variable gets the IPv6 CIDR prepended, breaking the IP range.
 BASE=$(docker network inspect kind \
-  --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' | \
-  head -1 | cut -d. -f1,2)
+  --format '{{range .IPAM.Config}}{{println .Subnet}}{{end}}' \
+  | grep -v ':' | head -1 | cut -d. -f1,2)
 echo "MetalLB base: $BASE"
 
 # east pool
@@ -512,7 +517,7 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-  - ${BASE}.255.200-${BASE}.255.210
+  - ${BASE}.255.100-${BASE}.255.110
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
@@ -521,7 +526,7 @@ metadata:
   namespace: metallb-system
 EOF
 
-# west pool
+# west pool  (.120-.130 keeps this demo non-overlapping with istio-gw which uses .200-.230)
 kubectl --context $CLUSTER2 apply -f - &lt;&lt;EOF
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
@@ -530,7 +535,7 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-  - ${BASE}.255.220-${BASE}.255.230
+  - ${BASE}.255.120-${BASE}.255.130
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement

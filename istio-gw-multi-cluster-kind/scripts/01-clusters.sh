@@ -13,8 +13,8 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-[[ -n "${CLUSTER1:-}" ]] || die "CLUSTER1 is not set — run: export CLUSTER1=kind-east"
-[[ -n "${CLUSTER2:-}" ]] || die "CLUSTER2 is not set — run: export CLUSTER2=kind-west"
+CLUSTER1="${CLUSTER1:-kind-east-istio}"
+CLUSTER2="${CLUSTER2:-kind-west-istio}"
 
 log()    { echo "  → $*"; }
 log_ok() { echo "  ✓ $*"; }
