@@ -580,11 +580,14 @@ for IMG in pilot proxyv2 install-cni ztunnel; do
   docker pull "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}"
 done
 
+# `kind load docker-image` uses `ctr import --all-platforms` internally and
+# fails when only one platform's layers are cached locally (multi-platform manifest).
+# `docker save | kind load image-archive` exports only the cached layers and
+# imports without --all-platforms, so it works regardless of host arch.
 for CTX in $CLUSTER1 $CLUSTER2; do
   for IMG in pilot proxyv2 install-cni ztunnel; do
-    kind load docker-image \
-      "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}" \
-      --name "${CTX#kind-}"
+    docker save "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}" \
+      | kind load image-archive /dev/stdin --name "${CTX#kind-}"
   done
 done</code></pre>
 
