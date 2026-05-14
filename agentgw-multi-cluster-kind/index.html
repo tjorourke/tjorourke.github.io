@@ -432,6 +432,8 @@
 <pre><code># Cluster names — suffixed -ag so this demo can run alongside the istio-gw demo
 export CLUSTER1=kind-east-ag
 export CLUSTER2=kind-west-ag
+export NAME1="${CLUSTER1#kind-}"   # logical name (strips "kind-" prefix)
+export NAME2="${CLUSTER2#kind-}"
 
 # Solo licences — source your secrets file or paste values directly
 source /path/to/secrets-envs.sh
@@ -512,7 +514,7 @@ openssl req -new -x509 -days 3650 \
 
   <h4>Generate per-cluster intermediates</h4>
   <p>The SAN <code>spiffe://cluster.local/ns/istio-system/sa/citadel</code> is required — Solo Istio's cross-cluster cert-chain validation checks it.</p>
-<pre><code>for CLUSTER_NAME in east west; do
+<pre><code>for CLUSTER_NAME in $NAME1 $NAME2; do
   openssl genrsa -out certs/${CLUSTER_NAME}-ca.key 4096
 
   openssl req -new \
@@ -534,7 +536,7 @@ openssl req -new -x509 -days 3650 \
 done</code></pre>
 
   <h4>Apply cacerts secrets</h4>
-<pre><code>for CTX_AND_NAME in "${CLUSTER1}:east" "${CLUSTER2}:west"; do
+<pre><code>for CTX_AND_NAME in "${CLUSTER1}:${NAME1}" "${CLUSTER2}:${NAME2}"; do
   CTX="${CTX_AND_NAME%%:*}"
   NAME="${CTX_AND_NAME##*:}"
 
@@ -583,7 +585,7 @@ for IMG in pilot proxyv2 install-cni ztunnel; do
     || docker pull --platform "${KIND_PLATFORM}" "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}"
 done
 
-for CLUSTER_NAME in east-ag west-ag; do
+for CLUSTER_NAME in $NAME1 $NAME2; do
   for IMG in pilot proxyv2 install-cni ztunnel; do
     kind load docker-image \
       "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}" \
@@ -616,8 +618,8 @@ metadata:
   name: managed-istio
   namespace: gloo-system
 spec:
-  cluster: east
-  network: east
+  cluster: ${NAME1}
+  network: ${NAME1}
   trustDomain: cluster.local
   version: "${ISTIO_VERSION_OPERATOR}"
   dataplaneMode: Ambient
@@ -633,8 +635,8 @@ metadata:
   name: managed-istio
   namespace: gloo-system
 spec:
-  cluster: west
-  network: west
+  cluster: ${NAME2}
+  network: ${NAME2}
   trustDomain: cluster.local
   version: "${ISTIO_VERSION_OPERATOR}"
   dataplaneMode: Ambient
@@ -697,8 +699,8 @@ done</code></pre>
 
   <h4>Label istio-system with the cluster network</h4>
   <p>Without this label istiod can't classify remote pod networks and endpoint rewriting never fires.</p>
-<pre><code>kubectl --context $CLUSTER1 label ns istio-system topology.istio.io/network=east --overwrite
-kubectl --context $CLUSTER2 label ns istio-system topology.istio.io/network=west --overwrite</code></pre>
+<pre><code>kubectl --context $CLUSTER1 label ns istio-system topology.istio.io/network=$NAME1 --overwrite
+kubectl --context $CLUSTER2 label ns istio-system topology.istio.io/network=$NAME2 --overwrite</code></pre>
 
   <h4>Install east-west gateway — east cluster</h4>
 <pre><code>kubectl --context $CLUSTER1 create namespace istio-eastwest --dry-run=client -o yaml \
@@ -710,8 +712,8 @@ helm upgrade --install peering-eastwest \
   --namespace istio-eastwest \
   --version $ISTIO_VERSION \
   --set eastwest.create=true \
-  --set eastwest.cluster=east \
-  --set eastwest.network=east \
+  --set eastwest.cluster=$NAME1 \
+  --set eastwest.network=$NAME1 \
   --set 'eastwest.dataplaneServiceTypes[0]=nodeport' \
   --set eastwest.service.spec.type=NodePort \
   --set 'eastwest.service.spec.ports[0].name=tls-hbone' \
@@ -735,8 +737,8 @@ helm upgrade --install peering-eastwest \
   --namespace istio-eastwest \
   --version $ISTIO_VERSION \
   --set eastwest.create=true \
-  --set eastwest.cluster=west \
-  --set eastwest.network=west \
+  --set eastwest.cluster=$NAME2 \
+  --set eastwest.network=$NAME2 \
   --set 'eastwest.dataplaneServiceTypes[0]=nodeport' \
   --set eastwest.service.spec.type=NodePort \
   --set 'eastwest.service.spec.ports[0].name=tls-hbone' \
@@ -751,9 +753,9 @@ helm upgrade --install peering-eastwest \
   --wait</code></pre>
 
   <h4>Discover node IPs on the kind Docker bridge</h4>
-<pre><code>EAST_IP=$(docker inspect east-ag-control-plane \
+<pre><code>EAST_IP=$(docker inspect ${NAME1}-control-plane \
   --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
-WEST_IP=$(docker inspect west-ag-control-plane \
+WEST_IP=$(docker inspect ${NAME2}-control-plane \
   --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
 echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
 
@@ -765,8 +767,8 @@ echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
   --version $ISTIO_VERSION \
   --set eastwest.create=false \
   --set remote.create=true \
-  --set 'remote.items[0].cluster=west' \
-  --set 'remote.items[0].network=west' \
+  --set "remote.items[0].cluster=$NAME2" \
+  --set "remote.items[0].network=$NAME2" \
   --set 'remote.items[0].trustDomain=cluster.local' \
   --set "remote.items[0].address=${WEST_IP}" \
   --set 'remote.items[0].hbonePort=30015' \
@@ -780,8 +782,8 @@ echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
   --version $ISTIO_VERSION \
   --set eastwest.create=false \
   --set remote.create=true \
-  --set 'remote.items[0].cluster=east' \
-  --set 'remote.items[0].network=east' \
+  --set "remote.items[0].cluster=$NAME1" \
+  --set "remote.items[0].network=$NAME1" \
   --set 'remote.items[0].trustDomain=cluster.local' \
   --set "remote.items[0].address=${EAST_IP}" \
   --set 'remote.items[0].hbonePort=30015' \
@@ -809,27 +811,27 @@ kubectl --context $CLUSTER2 apply -f - &lt;&lt;EOF
 apiVersion: v1
 kind: Secret
 metadata:
-  name: istio-remote-secret-east
+  name: istio-remote-secret-${NAME1}
   namespace: istio-system
   labels:
-    istio.io/cluster: east
+    istio.io/cluster: "${NAME1}"
     networking.istio.io/remote: "true"
 type: Opaque
 stringData:
-  east: |
+  ${NAME1}: |
     apiVersion: v1
     kind: Config
     clusters:
     - cluster:
         certificate-authority-data: ${EAST_CA}
         server: ${EAST_SERVER}
-      name: east
+      name: ${NAME1}
     contexts:
-    - context: {cluster: east, user: east}
-      name: east
-    current-context: east
+    - context: {cluster: ${NAME1}, user: ${NAME1}}
+      name: ${NAME1}
+    current-context: ${NAME1}
     users:
-    - name: east
+    - name: ${NAME1}
       user:
         token: ${EAST_TOKEN}
 EOF
@@ -839,27 +841,27 @@ kubectl --context $CLUSTER1 apply -f - &lt;&lt;EOF
 apiVersion: v1
 kind: Secret
 metadata:
-  name: istio-remote-secret-west
+  name: istio-remote-secret-${NAME2}
   namespace: istio-system
   labels:
-    istio.io/cluster: west
+    istio.io/cluster: "${NAME2}"
     networking.istio.io/remote: "true"
 type: Opaque
 stringData:
-  west: |
+  ${NAME2}: |
     apiVersion: v1
     kind: Config
     clusters:
     - cluster:
         certificate-authority-data: ${WEST_CA}
         server: ${WEST_SERVER}
-      name: west
+      name: ${NAME2}
     contexts:
-    - context: {cluster: west, user: west}
-      name: west
-    current-context: west
+    - context: {cluster: ${NAME2}, user: ${NAME2}}
+      name: ${NAME2}
+    current-context: ${NAME2}
     users:
-    - name: west
+    - name: ${NAME2}
       user:
         token: ${WEST_TOKEN}
 EOF</code></pre>
@@ -882,7 +884,7 @@ istioctl --context $CLUSTER2 multicluster check</code></pre>
   <h3>Enable Istio Ambient for bookinfo namespace</h3>
   <p>Labelling the namespace enrolls all its pods in the Ambient data plane (ztunnel intercepts traffic at L4). No pod restarts needed.</p>
 <pre><code># Label network topology on every workload namespace (required for endpoint rewriting)
-for CTX_AND_NET in "${CLUSTER1}:east" "${CLUSTER2}:west"; do
+for CTX_AND_NET in "${CLUSTER1}:${NAME1}" "${CLUSTER2}:${NAME2}"; do
   CTX="${CTX_AND_NET%%:*}"
   NET="${CTX_AND_NET##*:}"
   kubectl --context $CTX label namespace bookinfo \
@@ -940,7 +942,7 @@ done</code></pre>
   --namespace agentgateway-system \
   --version $AGW_VERSION \
   --set licenseKey="${AGENTGATEWAY_LICENSE_KEY}" \
-  --set clusterName=east \
+  --set clusterName=$NAME1 \
   --wait
 
 helm upgrade --install enterprise-agentgateway \
@@ -949,19 +951,19 @@ helm upgrade --install enterprise-agentgateway \
   --namespace agentgateway-system \
   --version $AGW_VERSION \
   --set licenseKey="${AGENTGATEWAY_LICENSE_KEY}" \
-  --set clusterName=west \
+  --set clusterName=$NAME2 \
   --wait</code></pre>
 
   <h4>Label agentgateway-system for Ambient + network topology</h4>
   <p>Every workload namespace must carry the <code>topology.istio.io/network</code> label — without it istiod can't classify pod networks and cross-cluster endpoint rewriting never fires. The <code>istio.io/dataplane-mode=ambient</code> label enrolls agentgateway pods in the ztunnel data plane.</p>
 <pre><code>kubectl --context $CLUSTER1 label namespace agentgateway-system \
   istio.io/dataplane-mode=ambient \
-  topology.istio.io/network=east \
+  topology.istio.io/network=$NAME1 \
   --overwrite
 
 kubectl --context $CLUSTER2 label namespace agentgateway-system \
   istio.io/dataplane-mode=ambient \
-  topology.istio.io/network=west \
+  topology.istio.io/network=$NAME2 \
   --overwrite</code></pre>
 
   <h4>Verify GatewayClasses are registered</h4>
