@@ -205,17 +205,16 @@
   }
   footer a { color: var(--accent-dark); }
 
-  .code-wrap { position: relative; display: block; }
   .copy-btn {
     position: absolute; top: 10px; right: 10px; z-index: 10;
-    background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.30);
-    color: #cbd5e1; border-radius: 6px; padding: 4px 12px;
-    font-size: 12px; font-family: ui-monospace, monospace; cursor: pointer;
+    background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.22);
+    color: #94a3b8; border-radius: 6px; padding: 5px 6px;
+    cursor: pointer; line-height: 0;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
-    user-select: none; line-height: 1.8; font-weight: 500;
+    user-select: none;
   }
-  .copy-btn:hover { background: rgba(255,255,255,0.22); color: #f1f5f9; border-color: rgba(255,255,255,0.50); }
-  .copy-btn.copied { background: rgba(5,150,105,0.30); border-color: rgba(5,150,105,0.6); color: #6ee7b7; }
+  .copy-btn:hover { background: rgba(255,255,255,0.20); color: #e2e8f0; border-color: rgba(255,255,255,0.40); }
+  .copy-btn.copied { background: rgba(5,150,105,0.25); border-color: rgba(5,150,105,0.55); color: #6ee7b7; }
 </style>
 </head>
 <body>
@@ -265,7 +264,7 @@
   <h4>Architecture</h4>
   <pre>
   ┌──────────────────────────┐    HBONE (port 15008)    ┌──────────────────────────┐
-  │  kind-east               │ ◄─────────────────────► │  kind-west               │
+  │  kind-east               │ ◄──────────────────────► │  kind-west               │
   │                          │                          │                          │
   │  pods: 10.10.0.0/16      │   east-west gateway      │  pods: 10.20.0.0/16      │
   │  svcs: 10.96.0.0/16      │   (MetalLB LB IP)        │  svcs: 10.97.0.0/16      │
@@ -894,33 +893,37 @@ kind delete cluster --name west</code></pre>
 </footer>
 
 <script>
+var copyIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>';
+var checkIcon  = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>';
+
 document.querySelectorAll('pre').forEach(function(pre) {
-  var wrap = document.createElement('div');
-  wrap.className = 'code-wrap';
-  pre.parentNode.insertBefore(wrap, pre);
-  wrap.appendChild(pre);
+  pre.style.position = 'relative';
   var btn = document.createElement('button');
   btn.className = 'copy-btn';
-  btn.textContent = 'Copy';
-  wrap.appendChild(btn);
+  btn.innerHTML = copyIcon;
+  btn.title = 'Copy';
+  pre.appendChild(btn);
   btn.addEventListener('click', function() {
     var code = pre.querySelector('code');
-    var text = (code ? code : pre).innerText;
-    navigator.clipboard.writeText(text).then(function() {
-      btn.textContent = 'Copied!';
+    var text;
+    if (code) {
+      text = code.innerText;
+    } else {
+      text = Array.from(pre.childNodes)
+        .filter(function(n) { return n.nodeType === 3; })
+        .map(function(n) { return n.textContent; })
+        .join('');
+    }
+    function onCopied() {
+      btn.innerHTML = checkIcon;
       btn.classList.add('copied');
-      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-    }).catch(function() {
+      setTimeout(function() { btn.innerHTML = copyIcon; btn.classList.remove('copied'); }, 2000);
+    }
+    navigator.clipboard.writeText(text).then(onCopied).catch(function() {
       var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      btn.textContent = 'Copied!';
-      btn.classList.add('copied');
-      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      onCopied();
     });
   });
 });
