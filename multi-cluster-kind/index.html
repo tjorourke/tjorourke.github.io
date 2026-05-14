@@ -558,7 +558,27 @@ done</code></pre>
   </div>
 </div>
 
-<!-- ── FIX 1: EGRESS GATEWAY ── -->
+<!-- ── FIX 1: PEER THE CLUSTERS ── -->
+<div class="step">
+  <div class="step-num">UPSTREAM SECTION</div>
+  <h3>Peer the clusters together</h3>
+  <p>
+    The upstream README goes straight from the <code>ServiceMeshController</code> apply to
+    <code>istioctl multicluster expose</code>. It is missing a label step — the Gloo Operator
+    does not automatically label the <code>istio-gateways</code> namespace with
+    <code>topology.istio.io/network</code>, and <code>istioctl multicluster expose</code>
+    looks for that label to determine the network name. Without it you get:
+  </p>
+  <pre><code>Error: failed to find network: no "topology.istio.io/network" label found</code></pre>
+  <p>Label the namespace on both clusters first, then run the expose commands:</p>
+  <pre><code>kubectl --context=${CLUSTER1} label namespace istio-gateways topology.istio.io/network=cluster1
+kubectl --context=${CLUSTER2} label namespace istio-gateways topology.istio.io/network=cluster2
+
+istioctl --context=${CLUSTER1} multicluster expose -n istio-gateways
+istioctl --context=${CLUSTER2} multicluster expose -n istio-gateways</code></pre>
+</div>
+
+<!-- ── FIX 2: EGRESS GATEWAY ── -->
 <div class="step">
   <div class="step-num">UPSTREAM SECTION</div>
   <h3>Egress Gateway</h3>
@@ -651,7 +671,7 @@ kubectl --context=$CLUSTER1 exec -it \
 </div>
 
 
-<!-- ── FIX 2: BOOTSTRAP TOKEN ── -->
+<!-- ── FIX 3: BOOTSTRAP TOKEN ── -->
 <h2>BOOTSTRAP_TOKEN fix</h2>
 
 <div class="step" style="margin-bottom:24px">
