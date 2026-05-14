@@ -15,20 +15,21 @@
 
 set -Eeuo pipefail
 
-CLUSTER1="${CLUSTER1:-kind-east}"
-CLUSTER2="${CLUSTER2:-kind-west}"
-
-METALLB_VERSION="v0.14.9"
-METALLB_URL="https://raw.githubusercontent.com/metallb/metallb/${METALLB_VERSION}/config/manifests/metallb-native.yaml"
-
 log()    { echo "  → $*"; }
 log_ok() { echo "  ✓ $*"; }
 die()    { echo "ERROR: $*" >&2; exit 1; }
 
+[[ -n "${CLUSTER1:-}" ]] || die "CLUSTER1 is not set — run: export CLUSTER1=kind-east"
+[[ -n "${CLUSTER2:-}" ]] || die "CLUSTER2 is not set — run: export CLUSTER2=kind-west"
+
+METALLB_VERSION="v0.14.9"
+METALLB_URL="https://raw.githubusercontent.com/metallb/metallb/${METALLB_VERSION}/config/manifests/metallb-native.yaml"
+
 # ── Detect kind network CIDR ──────────────────────────────────────────────────
+log "detecting kind network CIDR..."
 KIND_CIDR=$(docker network inspect kind \
   --format '{{range .IPAM.Config}}{{if .Subnet}}{{.Subnet}}{{end}}{{end}}' 2>/dev/null \
-  | grep -v ':' | head -1)
+  | grep -v ':' | head -1 || true)
 
 [[ -n "$KIND_CIDR" ]] || die "Could not detect kind network CIDR — is the kind network up? Run scripts/01-clusters.sh first."
 
@@ -39,22 +40,27 @@ POOL1_RANGE="${BASE}.255.200-${BASE}.255.210"
 POOL2_RANGE="${BASE}.255.220-${BASE}.255.230"
 
 log_ok "kind network: ${KIND_CIDR}"
-log "CLUSTER1 pool: ${POOL1_RANGE}"
-log "CLUSTER2 pool: ${POOL2_RANGE}"
+log_ok "${CLUSTER1} pool: ${POOL1_RANGE}"
+log_ok "${CLUSTER2} pool: ${POOL2_RANGE}"
 
 # ── Install MetalLB ───────────────────────────────────────────────────────────
-log "installing MetalLB ${METALLB_VERSION} on ${CLUSTER1} and ${CLUSTER2}"
-kubectl --context="${CLUSTER1}" apply -f "$METALLB_URL" 2>&1 | grep -v unchanged | sed 's/^/    /' &
-kubectl --context="${CLUSTER2}" apply -f "$METALLB_URL" 2>&1 | grep -v unchanged | sed 's/^/    /' &
-wait
-log_ok "MetalLB installed"
+log "installing MetalLB ${METALLB_VERSION} on ${CLUSTER1}..."
+kubectl --context="${CLUSTER1}" apply -f "$METALLB_URL"
+log_ok "MetalLB installed on ${CLUSTER1}"
 
-log "waiting for MetalLB controller pods"
+log "installing MetalLB ${METALLB_VERSION} on ${CLUSTER2}..."
+kubectl --context="${CLUSTER2}" apply -f "$METALLB_URL"
+log_ok "MetalLB installed on ${CLUSTER2}"
+
+log "waiting for MetalLB controller on ${CLUSTER1}..."
 kubectl --context="${CLUSTER1}" -n metallb-system wait \
   --for=condition=ready pod --selector=component=controller --timeout=120s
+log_ok "controller ready on ${CLUSTER1}"
+
+log "waiting for MetalLB controller on ${CLUSTER2}..."
 kubectl --context="${CLUSTER2}" -n metallb-system wait \
   --for=condition=ready pod --selector=component=controller --timeout=120s
-log_ok "controllers ready"
+log_ok "controller ready on ${CLUSTER2}"
 
 # ── Apply IP pools (generated from kind network CIDR) ────────────────────────
 log "applying IP pools"
