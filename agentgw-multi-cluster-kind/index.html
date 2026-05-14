@@ -860,7 +860,7 @@ done</code></pre>
 <div class="step">
   <div class="step-num">STEP 10</div>
   <h3>Install Solo Enterprise agentgateway</h3>
-  <p>Two helm installs per cluster: CRDs first, then the control plane. The chart registers both <code>enterprise-agentgateway</code> (ingress) and <code>enterprise-agentgateway-waypoint</code> (L7 / egress) GatewayClasses.</p>
+  <p>Two helm installs per cluster: CRDs first, then the gateway (controller + Envoy proxy). The chart registers both <code>enterprise-agentgateway</code> (ingress) and <code>enterprise-agentgateway-waypoint</code> (L7 / egress) GatewayClasses.</p>
 
   <h4>Install CRDs</h4>
 <pre><code>for CTX in $CLUSTER1 $CLUSTER2; do
@@ -872,14 +872,13 @@ done</code></pre>
     --wait
 done</code></pre>
 
-  <h4>Install Enterprise agentgateway control plane</h4>
+  <h4>Install Enterprise agentgateway</h4>
 <pre><code>helm upgrade --install enterprise-agentgateway \
   oci://us-docker.pkg.dev/solo-public/enterprise-agentgateway/charts/enterprise-agentgateway \
   --kube-context $CLUSTER1 \
   --namespace agentgateway-system \
   --version $AGW_VERSION \
-  --set licenseKey="${AGENTGATEWAY_LICENSE_KEY}" \
-  --set clusterName=${CLUSTER1#kind-} \
+  --set licensing.licenseKey="${AGENTGATEWAY_LICENSE_KEY}" \
   --wait
 
 helm upgrade --install enterprise-agentgateway \
@@ -887,8 +886,7 @@ helm upgrade --install enterprise-agentgateway \
   --kube-context $CLUSTER2 \
   --namespace agentgateway-system \
   --version $AGW_VERSION \
-  --set licenseKey="${AGENTGATEWAY_LICENSE_KEY}" \
-  --set clusterName=${CLUSTER2#kind-} \
+  --set licensing.licenseKey="${AGENTGATEWAY_LICENSE_KEY}" \
   --wait</code></pre>
 
   <h4>Label agentgateway-system for Ambient + network topology</h4>

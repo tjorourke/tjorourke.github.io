@@ -499,8 +499,7 @@ for PAIR in "${CLUSTER1}:${NAME1}" "${CLUSTER2}:${NAME2}"; do
     --kube-context "$CTX" \
     --namespace agentgateway-system \
     --version "$AGW_VERSION" \
-    --set licenseKey="${AGENTGATEWAY_LICENSE_KEY}" \
-    --set clusterName="$NAME" \
+    --set licensing.licenseKey="${AGENTGATEWAY_LICENSE_KEY}" \
     --wait >/dev/null
   log_ok "[$NAME] Enterprise agentgateway installed"
 done
