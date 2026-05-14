@@ -1061,6 +1061,58 @@ meshctl cluster register cluster2 \
   </p>
 </div>
 
+<div class="step">
+  <div class="step-num">MGMT STEP 4</div>
+  <h3>Enable enterprise CRDs and create a Workspace</h3>
+  <p>
+    This unlocks the new graph experience, cross-cluster <code>AccessPolicy</code> with
+    service account subjects, and the full Solo Mesh governance layer. First upgrade
+    the install to add the enterprise CRDs:
+  </p>
+  <pre><code>helm upgrade -i gloo-platform-crds gloo-platform/gloo-platform-crds \
+  -n gloo-mesh --version=2.12.0 \
+  --set installEnterpriseCrds=true \
+  --kube-context=$CLUSTER1</code></pre>
+  <p>Then create a <code>Workspace</code> scoping the <code>bookinfo</code> namespace
+  across both clusters, and a <code>WorkspaceSettings</code> allowing mutual import/export:</p>
+  <pre><code>kubectl apply --context=$CLUSTER1 -f - &lt;&lt;EOF
+apiVersion: admin.gloo.solo.io/v2
+kind: Workspace
+metadata:
+  name: bookinfo
+  namespace: gloo-mesh
+spec:
+  workloadClusters:
+  - name: cluster1
+    namespaces:
+    - name: bookinfo
+    - name: vm1
+  - name: cluster2
+    namespaces:
+    - name: bookinfo
+---
+apiVersion: admin.gloo.solo.io/v2
+kind: WorkspaceSettings
+metadata:
+  name: bookinfo
+  namespace: bookinfo
+spec:
+  importFrom:
+  - workspaces:
+    - name: bookinfo
+  exportTo:
+  - workspaces:
+    - name: bookinfo
+EOF</code></pre>
+  <p>Verify the Workspace is accepted:</p>
+  <pre><code>kubectl get workspace bookinfo -n gloo-mesh --context=$CLUSTER1</code></pre>
+  <p>
+    Now refresh the graph and click <strong>"Try the new Graph experience"</strong> —
+    it will render with service topology, cross-cluster edges, and mTLS lock icons
+    for every hop including the vm1 WorkloadEntry.
+  </p>
+</div>
+
 <div class="closing">
   <h3>Resources</h3>
   <ul>
