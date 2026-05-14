@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istiod-gloo
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+      istio.io/rev: gloo
+  endpoints:
+  - port: http-monitoring   # port 15014
+    interval: 15s
+    path: /metrics

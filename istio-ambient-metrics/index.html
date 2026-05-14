@@ -240,6 +240,12 @@ kill %1</code></pre>
 In a production cluster, add a <code>ServiceMonitor</code> targeting port <code>15014</code> on the
 <code>istiod-gloo</code> Service to have Prometheus scrape it automatically.</p>
 
+<p>
+  <a href="./service-monitor.yaml" download>⬇ service-monitor.yaml</a>
+  &nbsp;·&nbsp;
+  <a href="./prometheus-alerts.yaml" download>⬇ prometheus-alerts.yaml</a>
+</p>
+
 <pre><code>apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -680,6 +686,8 @@ to authenticate. The counters stall; the push time histograms stop accumulating.
 
 <p>Paste this into a <code>PrometheusRule</code> CR (kube-prometheus-stack) or a standalone
 <code>rules.yaml</code> file. Each rule maps directly to a metric in the tables above.</p>
+
+<p><a href="./prometheus-alerts.yaml" download>⬇ Download prometheus-alerts.yaml</a></p>
 
 <pre><code>apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
