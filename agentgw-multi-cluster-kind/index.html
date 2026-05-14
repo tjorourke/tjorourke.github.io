@@ -786,13 +786,13 @@ echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
 <pre><code># East's credentials onto west
 istioctl create-remote-secret \
   --context $CLUSTER1 \
-  --name $NAME1 | \
+  --name ${CLUSTER1#kind-} | \
   kubectl --context $CLUSTER2 apply -f -
 
 # West's credentials onto east
 istioctl create-remote-secret \
   --context $CLUSTER2 \
-  --name $NAME2 | \
+  --name ${CLUSTER2#kind-} | \
   kubectl --context $CLUSTER1 apply -f -</code></pre>
 
   <h4>Verify peering</h4>
