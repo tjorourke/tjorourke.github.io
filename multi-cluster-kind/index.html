@@ -396,9 +396,17 @@
 
 <div class="step">
   <div class="step-num">STEP 01</div>
-  <h3>Clone this repo</h3>
-  <pre><code>git clone git@github.com:tjorourke/tjorourke.github.io.git
-cd tjorourke.github.io/multi-cluster-kind</code></pre>
+  <h3>Clone both repos</h3>
+  <p>Clone this repo (kind-specific scripts) and Ram's workshop side by side — you'll be
+  switching between them throughout the lab:</p>
+  <pre><code># Kind-specific setup scripts (this guide)
+git clone git@github.com:tjorourke/tjorourke.github.io.git
+cd tjorourke.github.io/multi-cluster-kind
+
+# Upstream workshop (open alongside this guide)
+git clone https://github.com/rvennam/ambient-multicluster-workshop</code></pre>
+  <p>You'll run the kind scripts first (Steps 2–3 below), then follow Ram's workshop with the
+  fixes documented in the "Workshop fixes for kind" section.</p>
 </div>
 
 <div class="step">
@@ -411,8 +419,8 @@ cd tjorourke.github.io/multi-cluster-kind</code></pre>
   ✓ cluster 'west' ready
 
 Contexts:
-*  kind-east
-   kind-west</code></pre>
+*  kind-east   ← $CLUSTER1
+   kind-west   ← $CLUSTER2</code></pre>
 </div>
 
 <div class="step">
@@ -442,16 +450,15 @@ LoadBalancer services:
   <div class="step-num">STEP 04</div>
   <h3>Set cluster env vars, then follow the upstream workshop</h3>
   <p>
-    Set these variables first — the workshop uses them throughout and so do the kind-specific
-    fixes below:
+    Set these variables — the workshop uses them throughout and so do the kind-specific fixes
+    below. Run these in every new terminal session:
   </p>
   <pre><code>export CLUSTER1=kind-east
 export CLUSTER2=kind-west</code></pre>
   <p>
-    Clone Ram's workshop alongside your kind setup:
+    Switch into the workshop directory you cloned in Step 1:
   </p>
-  <pre><code>git clone https://github.com/rvennam/ambient-multicluster-workshop
-cd ambient-multicluster-workshop</code></pre>
+  <pre><code>cd ambient-multicluster-workshop</code></pre>
   <p>
     The workshop covers:
   </p>
