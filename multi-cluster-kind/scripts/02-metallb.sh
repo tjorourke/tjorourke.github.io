@@ -4,14 +4,16 @@
 # Replaces cloud-provider-kind, which has a known macOS bug where it fails to
 # write the assigned IP back to status.loadBalancer.ingress.
 #
-# IP layout (kind bridge network 172.22.0.0/16):
-#   nodes:         172.22.0.2 - 172.22.0.9   (kind-assigned)
-#   CLUSTER1 pool: 172.22.255.200 - 172.22.255.210
-#   CLUSTER2 pool: 172.22.255.220 - 172.22.255.230
+# IP pool ranges are derived at runtime from the 'kind' Docker network CIDR —
+# they are NOT hardcoded, since Docker's IPAM assigns a different /16 on each
+# machine depending on what other networks exist.
+#
+# Layout (example if kind network is 172.22.0.0/16):
+#   nodes:         <base>.0.2 - <base>.0.9   (kind-assigned)
+#   CLUSTER1 pool: <base>.255.200 - <base>.255.210
+#   CLUSTER2 pool: <base>.255.220 - <base>.255.230
 
 set -Eeuo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 CLUSTER1="${CLUSTER1:-kind-east}"
 CLUSTER2="${CLUSTER2:-kind-west}"
@@ -19,13 +21,28 @@ CLUSTER2="${CLUSTER2:-kind-west}"
 METALLB_VERSION="v0.14.9"
 METALLB_URL="https://raw.githubusercontent.com/metallb/metallb/${METALLB_VERSION}/config/manifests/metallb-native.yaml"
 
-# Pool files are named after the cluster suffix (strip "kind-" prefix)
-CLUSTER1_NAME="${CLUSTER1#kind-}"
-CLUSTER2_NAME="${CLUSTER2#kind-}"
-
 log()    { echo "  → $*"; }
 log_ok() { echo "  ✓ $*"; }
+die()    { echo "ERROR: $*" >&2; exit 1; }
 
+# ── Detect kind network CIDR ──────────────────────────────────────────────────
+KIND_CIDR=$(docker network inspect kind \
+  --format '{{range .IPAM.Config}}{{if .Subnet}}{{.Subnet}}{{end}}{{end}}' 2>/dev/null \
+  | grep -v ':' | head -1)
+
+[[ -n "$KIND_CIDR" ]] || die "Could not detect kind network CIDR — is the kind network up? Run scripts/01-clusters.sh first."
+
+# Extract the first two octets (handles /16 like 172.22.0.0/16 → 172.22)
+BASE=$(echo "$KIND_CIDR" | cut -d. -f1-2)
+
+POOL1_RANGE="${BASE}.255.200-${BASE}.255.210"
+POOL2_RANGE="${BASE}.255.220-${BASE}.255.230"
+
+log_ok "kind network: ${KIND_CIDR}"
+log "CLUSTER1 pool: ${POOL1_RANGE}"
+log "CLUSTER2 pool: ${POOL2_RANGE}"
+
+# ── Install MetalLB ───────────────────────────────────────────────────────────
 log "installing MetalLB ${METALLB_VERSION} on ${CLUSTER1} and ${CLUSTER2}"
 kubectl --context="${CLUSTER1}" apply -f "$METALLB_URL" 2>&1 | grep -v unchanged | sed 's/^/    /' &
 kubectl --context="${CLUSTER2}" apply -f "$METALLB_URL" 2>&1 | grep -v unchanged | sed 's/^/    /' &
@@ -39,9 +56,43 @@ kubectl --context="${CLUSTER2}" -n metallb-system wait \
   --for=condition=ready pod --selector=component=controller --timeout=120s
 log_ok "controllers ready"
 
+# ── Apply IP pools (generated from kind network CIDR) ────────────────────────
 log "applying IP pools"
-kubectl --context="${CLUSTER1}" apply -f "$REPO_ROOT/yaml/metallb/${CLUSTER1_NAME}-pool.yaml"
-kubectl --context="${CLUSTER2}" apply -f "$REPO_ROOT/yaml/metallb/${CLUSTER2_NAME}-pool.yaml"
+
+kubectl --context="${CLUSTER1}" apply -f - <<EOF
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: kind-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - ${POOL1_RANGE}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: kind-l2
+  namespace: metallb-system
+EOF
+
+kubectl --context="${CLUSTER2}" apply -f - <<EOF
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: kind-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - ${POOL2_RANGE}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: kind-l2
+  namespace: metallb-system
+EOF
+
 log_ok "pools applied"
 
 sleep 5

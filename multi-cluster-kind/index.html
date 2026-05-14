@@ -52,6 +52,10 @@
     letter-spacing: -0.02em; font-weight: 700; color: #f8fafc;
     max-width: 900px;
   }
+  header.hero .byline {
+    color: rgba(255,255,255,0.50); font-size: 13.5px; margin: -10px 0 22px; letter-spacing: 0.01em;
+  }
+  header.hero .byline a { color: rgba(255,255,255,0.65); text-decoration: none; }
   header.hero .sub {
     font-size: 18px; line-height: 1.55; color: #cbd5e1; max-width: 760px; margin: 0 0 28px;
   }
@@ -225,12 +229,13 @@
     <div class="eyebrow">Cloud Connectivity · Istio Ambient · Multicluster</div>
     <div class="status-badge">Live · Runs on kind</div>
     <h1>Istio Ambient Multicluster on kind</h1>
+    <div class="byline">Tom O'Rourke · EMEA Field CTO · <a href="https://solo.io">Solo.io</a></div>
     <p class="sub">
       Run the Istio Ambient multicluster workshop locally — two kind clusters
       (<code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">east</code> +
       <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">west</code>)
       with MetalLB for LoadBalancer IPs, no cloud account needed.
-      Based on <a href="https://github.com/rvennam/ambient-multicluster-workshop" style="color:#67e8f9">Ram Vennam's ambient-multicluster-workshop</a>
+      Based on <a href="https://github.com/rvennam/ambient-multicluster-workshop" style="color:#67e8f9">Ram Vennam's ambient-multicluster-workshop</a> <span style="color:rgba(255,255,255,0.45);font-size:15px">(Field CTO, US, Solo.io)</span>
       with kind-specific wiring.
     </p>
     <span class="lead-chip">kind</span>
@@ -274,7 +279,7 @@
   │  istiod (control plane)  │                          │  istiod (control plane)  │
   └──────────────────────────┘                          └──────────────────────────┘
          │                                                       │
-         └──────────────── Docker bridge 172.22.0.0/16 ──────────┘
+         └──────────────────── Docker bridge ────────────────────┘
   </pre>
 </div>
 
@@ -291,21 +296,23 @@
       <td><strong>$CLUSTER1</strong> <span style="color:var(--muted);font-size:13px">(kind-east)</span></td>
       <td><code>10.10.0.0/16</code></td>
       <td><code>10.96.0.0/16</code></td>
-      <td><code>172.22.255.200 – 210</code></td>
+      <td><code>&lt;base&gt;.255.200 – 210</code></td>
     </tr>
     <tr>
       <td><strong>$CLUSTER2</strong> <span style="color:var(--muted);font-size:13px">(kind-west)</span></td>
       <td><code>10.20.0.0/16</code></td>
       <td><code>10.97.0.0/16</code></td>
-      <td><code>172.22.255.220 – 230</code></td>
+      <td><code>&lt;base&gt;.255.220 – 230</code></td>
     </tr>
   </tbody>
 </table>
 
 <p style="color:#475569;font-size:15px">
-  All MetalLB IPs sit in the kind Docker bridge network (<code>172.22.0.0/16</code>) well above
-  the kind node IPs (<code>172.22.0.2–9</code>). This means east-west gateway LoadBalancer IPs
-  are reachable from both clusters without any extra routing.
+  MetalLB pool ranges are derived at runtime from the <code>kind</code> Docker network CIDR
+  (detected by <code>scripts/02-metallb.sh</code> via <code>docker network inspect kind</code>).
+  <code>&lt;base&gt;</code> is the first two octets of that CIDR — e.g. <code>172.22</code> if kind
+  got <code>172.22.0.0/16</code>. Both pools sit well above the node IPs so they are reachable
+  from both clusters without any extra routing.
 </p>
 
 <h2>Prerequisites</h2>
@@ -612,9 +619,9 @@ kubectl --context=$CLUSTER1 exec -it \
   <strong>You need Solo's istioctl, not the upstream one.</strong>
   <code>istioctl bootstrap</code> is a Solo-specific subcommand — the upstream binary doesn't have it.
   Install Solo's istioctl by following the prereqs in Ram's workshop, then confirm you're using the right binary before continuing:
-  <pre style="margin:10px 0 0;background:rgba(0,0,0,0.25);border:none;padding:12px 16px;color:#e2e8f0"><code>istioctl bootstrap --help   # must succeed — if "unknown command", you're using upstream istioctl</code></pre>
+  <pre style="margin:10px 0 0;background:#0f172a;border:none;padding:12px 16px;color:#e2e8f0"><code>istioctl bootstrap --help   # must succeed — if "unknown command", you're using upstream istioctl</code></pre>
   If you have multiple <code>istioctl</code> binaries, make sure Solo's is first on your PATH:
-  <pre style="margin:6px 0 0;background:rgba(0,0,0,0.25);border:none;padding:12px 16px;color:#e2e8f0"><code>export PATH=/path/to/solo-istioctl/bin:$PATH</code></pre>
+  <pre style="margin:6px 0 0;background:#0f172a;border:none;padding:12px 16px;color:#e2e8f0"><code>export PATH=/path/to/solo-istioctl/bin:$PATH</code></pre>
 </div>
 
 <p style="color:#475569;margin-top:16px">
@@ -629,7 +636,7 @@ kubectl --context=$CLUSTER1 exec -it \
   <div class="step-num">WORKAROUND 1</div>
   <h3>Create the namespace and service account</h3>
   <p>Confirm MetalLB has assigned an IP to the east-west gateway before generating the token:</p>
-  <pre><code># Should show an IP in 172.22.255.200-210 — if blank, wait for Istio to install the east-west GW
+  <pre><code># Should show a MetalLB IP — if blank, wait for Istio to install the east-west GW
 kubectl --context=$CLUSTER1 get svc -A \
   -l istio.io/expose-istiod -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'
 
@@ -647,7 +654,7 @@ BOOTSTRAP_TOKEN=$(istioctl --context=$CLUSTER1 \
 
 # Verify the embedded URL is the east MetalLB IP:
 echo "$BOOTSTRAP_TOKEN" | base64 -d | base64 -d | python3 -m json.tool | grep url</code></pre>
-  <p>Expected: <code>"url": "https://172.22.255.200:15012"</code>.</p>
+  <p>Expected: a URL pointing to your east cluster's MetalLB IP on port 15012, e.g. <code>"url": "https://&lt;east-gw-ip&gt;:15012"</code>.</p>
 </div>
 
 <div class="step">
@@ -685,11 +692,6 @@ echo "BOOTSTRAP_TOKEN patched (length: ${#BOOTSTRAP_TOKEN})"</code></pre>
   identically from Istio's perspective: it gets an IP on the shared Docker bridge, ztunnel runs
   inside it, and the mesh sees it as a VM workload.
 </p>
-
-<div class="tip">
-  <strong>No scripts here.</strong> Follow each step manually so you understand what each command
-  does — that understanding matters when adapting this to real VMs.
-</div>
 
 <div class="step">
   <div class="step-num">VM STEP 1</div>
@@ -735,7 +737,7 @@ docker run -d \
   sh -c "dockerd --storage-driver=vfs > /var/log/dockerd.log 2>&1 &amp; sleep infinity"</code></pre>
   <p>Verify the container is running and has an IP on the kind network:</p>
   <pre><code>docker inspect vm1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'</code></pre>
-  <p>You should see an IP in the <code>172.22.0.0/16</code> range.</p>
+  <p>You should see an IP on the kind Docker bridge network.</p>
   <p>
     Now wait for <code>dockerd</code> to finish its startup sequence inside the container before
     proceeding — it takes a few seconds on first run. Poll until <code>docker info</code>
@@ -787,7 +789,7 @@ docker run -d \
   <p>Check ztunnel logs to confirm it connected to istiod:</p>
   <pre><code>docker logs ztunnel 2>&amp;1 | grep -E 'connected|error|WARN' | head -20</code></pre>
   <p>A successful startup looks like:</p>
-  <pre><code>INFO ztunnel::proxy: connected to istiod at 172.22.255.200:15012
+  <pre><code>INFO ztunnel::proxy: connected to istiod at &lt;east-gw-ip&gt;:15012
 INFO ztunnel::proxy: xds connection established</code></pre>
 </div>
 
@@ -842,38 +844,28 @@ EOF</code></pre>
   <p>
     Once enrolled, you can write <code>AuthorizationPolicy</code> rules that reference the
     <code>vm1</code> service account principal — the same as any in-cluster workload.
+    For example, to allow <code>vm1</code> to reach the <code>productpage</code> service in
+    the <code>bookinfo</code> namespace:
   </p>
+  <pre><code>apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-vm1-to-productpage
+  namespace: bookinfo
+spec:
+  selector:
+    matchLabels:
+      app: productpage
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/vm1/sa/vm1"</code></pre>
+  <p>The SPIFFE principal <code>cluster.local/ns/&lt;namespace&gt;/sa/&lt;service-account&gt;</code>
+  is the VM's cryptographic identity — issued by istiod and backed by the shared root CA,
+  exactly as it would be for an in-cluster pod.</p>
 </div>
-
-
-<h2>Troubleshooting</h2>
-
-<h3>MetalLB IPs not appearing on LoadBalancer services</h3>
-<p>Check the MetalLB controller and speaker pods are running:</p>
-<pre><code>kubectl --context=kind-east -n metallb-system get pods
-kubectl --context=kind-west -n metallb-system get pods</code></pre>
-<p>If the speaker pods have permission errors, re-apply the IP pools:</p>
-<pre><code>kubectl --context=kind-east apply -f yaml/metallb/east-pool.yaml
-kubectl --context=kind-west apply -f yaml/metallb/west-pool.yaml</code></pre>
-
-<h3>Clusters can't reach each other's east-west gateway IPs</h3>
-<p>Verify both MetalLB IPs are in the <code>172.22.255.x</code> range and reachable from either cluster's node:</p>
-<pre><code># Get the east-west GW IP on east cluster
-kubectl --context=kind-east -n istio-system get svc istio-eastwestgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-
-# Curl it from a west cluster pod
-kubectl --context=kind-west exec -it deploy/sleep -- curl http://&lt;east-gw-ip&gt;:15021/healthz/ready</code></pre>
-
-<h3>ztunnel not starting</h3>
-<p>
-  Ensure Docker Desktop has at least 6 CPU / 8 GB RAM. Check ztunnel DaemonSet status:
-</p>
-<pre><code>kubectl --context=kind-east -n istio-system get ds ztunnel
-kubectl --context=kind-east -n istio-system logs ds/ztunnel | tail -30</code></pre>
-
-<h3>Tear down</h3>
-<pre><code>kind delete cluster --name east
-kind delete cluster --name west</code></pre>
 
 <div class="closing">
   <h3>Resources</h3>
