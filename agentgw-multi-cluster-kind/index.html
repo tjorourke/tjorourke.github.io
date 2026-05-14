@@ -625,16 +625,34 @@ EOF</code></pre>
     --timeout=300s
 done</code></pre>
 
-  <h4>Patch istiod — required env vars for Ambient peering</h4>
-  <p>These two flags aren't exposed as SMC schema fields — patch them directly. The <code>L7_ENABLED</code> flag enables layer-7 Ambient processing; <code>PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES=false</code> is required for Ambient endpoint rewriting to work correctly.</p>
-<pre><code>for CTX in $CLUSTER1 $CLUSTER2; do
+  <h4>Patch mesh components — required env vars for Ambient peering</h4>
+  <p>The Gloo Operator 0.5.2 SMC schema doesn't yet expose the <code>platforms.peering.enabled</code> flag that direct Helm installs use to wire these automatically. Two vars must be set explicitly — each on the correct component:</p>
+  <ul>
+    <li><code>PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES=false</code> on <strong>istiod</strong> — enables Ambient endpoint rewriting (cross-cluster endpoints resolve via east-west gateway, not K8s WorkloadEntries)</li>
+    <li><code>L7_ENABLED=true</code> on <strong>ztunnel</strong> — enables L7-aware HBONE tunnelling through waypoints</li>
+  </ul>
+<pre><code># istiod — disable K8s WorkloadEntry selection (required for cross-cluster endpoint rewriting)
+for CTX in $CLUSTER1 $CLUSTER2; do
   kubectl --context $CTX -n istio-system patch deployment istiod-gloo \
     --type=json -p='[
       {"op":"add","path":"/spec/template/spec/containers/0/env/-",
-       "value":{"name":"L7_ENABLED","value":"true"}},
-      {"op":"add","path":"/spec/template/spec/containers/0/env/-",
        "value":{"name":"PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES","value":"false"}}
     ]'
+done
+
+# ztunnel — enable L7-aware HBONE (required for waypoint traffic across clusters)
+for CTX in $CLUSTER1 $CLUSTER2; do
+  kubectl --context $CTX -n istio-system patch daemonset ztunnel \
+    --type=json -p='[
+      {"op":"add","path":"/spec/template/spec/containers/0/env/-",
+       "value":{"name":"L7_ENABLED","value":"true"}}
+    ]'
+done
+
+# Wait for rollouts
+for CTX in $CLUSTER1 $CLUSTER2; do
+  kubectl --context $CTX -n istio-system rollout status deployment/istiod-gloo --timeout=120s
+  kubectl --context $CTX -n istio-system rollout status daemonset/ztunnel --timeout=120s
 done</code></pre>
 
   <h4>Create istiod alias Service</h4>
