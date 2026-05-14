@@ -1,0 +1,44 @@
+# Local environment
+.env
+.env.local
+*.kubeconfig
+kubeconfig
+
+# Cosign keys (never commit private keys)
+*.key
+!**/*.example.key
+
+# Multi-cluster shared CA — generated per-environment, never committed
+.certs/
+
+# Solo license files — one per product, never committed. See secrets/README.md.
+secrets/*.lic
+secrets/*.jwt
+secrets/*.key
+secrets/secrets-envs.sh
+
+# Evidence is generated, not source
+evidence/phase*/
+!evidence/.gitkeep
+
+# Build artefacts
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+dist/
+build/
+mcp-servers/ticket-mcp/ticket-mcp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Helm
+charts/*.tgz
+
+# Port-forward state (lives in /tmp anyway, but just in case)
+*.pids

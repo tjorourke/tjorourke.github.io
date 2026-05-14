@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tom O'Rourke — Solo agentic deployment demos &amp; patterns</title>
-<meta name="description" content="A series of hands-on demos, best practices and deployment patterns for Solo agentic AI workloads running on Istio's ambient mesh.">
+<title>Tom O'Rourke — Solo demos, patterns &amp; connectivity guides</title>
+<meta name="description" content="Hands-on demos and deployment patterns for Solo and Istio Ambient — agentic AI workloads, multicluster connectivity, runtime governance.">
 <style>
   :root {
     --ink: #0f172a;
@@ -53,8 +53,19 @@
 
   main { max-width: 1100px; margin: 0 auto; padding: 56px 32px 96px; }
 
-  h2 {
-    font-size: 26px; margin: 0 0 18px;
+  .section { margin: 0 0 56px; }
+  .section-label {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin: 0 0 20px;
+  }
+  .section-label .section-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--navy); color: #67e8f9;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .section-label h2 {
+    font-size: 22px; margin: 0;
     letter-spacing: -0.005em; font-weight: 700;
     border-left: 4px solid var(--accent); padding-left: 14px;
   }
@@ -140,6 +151,39 @@
   .demos .card.soon h3 { color: var(--muted); }
   .demos .card.soon .summary { color: var(--muted); }
 
+  .subsection-label {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 32px 0 14px 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .subsection-label::before {
+    content: ""; display: block; width: 20px; height: 1px; background: var(--muted);
+  }
+
+  .resource-card {
+    border: 1px solid var(--card-border);
+    border-radius: 12px; padding: 18px 22px;
+    background: var(--card-bg);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    text-decoration: none; color: inherit;
+    transition: box-shadow 0.12s, border-color 0.12s;
+    margin-bottom: 10px;
+  }
+  .resource-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(28,181,211,0.12);
+    text-decoration: none;
+  }
+  .resource-card .rc-left { display: flex; align-items: center; gap: 14px; }
+  .resource-card .rc-tag {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); background: rgba(15,23,42,0.06);
+    padding: 3px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;
+  }
+  .resource-card .rc-name { font-weight: 700; font-size: 15px; color: var(--ink); }
+  .resource-card .rc-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .resource-card .rc-arrow { color: var(--accent); font-size: 18px; flex-shrink: 0; }
+
   .closing {
     background: var(--navy); color: #cbd5e1; border-radius: 12px;
     padding: 28px 32px; margin: 48px 0 0;
@@ -161,61 +205,118 @@
 <header class="hero">
   <div class="wrap">
     <div class="eyebrow">Solo · Istio Ambient · Agentic Patterns</div>
-    <h1>Solo agentic deployment demos, best practices and patterns on Istio's ambient mesh.</h1>
+    <h1>Demos, deployment patterns and guides on Solo's stack.</h1>
     <p class="sub">
-      A growing series of hands-on demos that show how to deploy, secure and operate agentic AI
-      workloads on Solo's stack alongside Istio Ambient — covering kagent, agentgateway, MCP,
-      A2A, and the runtime-defence story that holds when the model gets things wrong.
+      Hands-on demos covering agentic AI governance and multicluster connectivity —
+      running on Solo Enterprise for Istio, kagent, agentgateway and Istio Ambient.
+      Everything runs locally on <strong style="color:#f8fafc">kind</strong> so you can replay it end-to-end.
     </p>
     <span class="lead-chip">Solo Enterprise for Istio</span>
     <span class="lead-chip">Istio Ambient · ztunnel + waypoint</span>
     <span class="lead-chip">agentgateway</span>
     <span class="lead-chip">kagent</span>
+    <span class="lead-chip">kind</span>
   </div>
 </header>
 
 <main>
 
 <section class="intro">
-  <p>This is the index page for a series of demos, deployment patterns and best practices I'm
-  publishing as I work through real-world agentic AI use cases with Solo and Istio Ambient. Each
-  entry is its own repo with scripts, manifests and a written walkthrough — designed to run
-  locally on <b>kind</b> so anyone can replay them end-to-end.</p>
-  <p>More demos and patterns will land here over time. The first one is below.</p>
+  <p>A series of hands-on demos, deployment patterns and guides I'm building as I work through
+  real-world use cases with Solo and Istio Ambient. Each entry comes with scripts, manifests and
+  a step-by-step walkthrough — designed to run locally on <b>kind</b> so anyone can replay them.</p>
 </section>
 
-<h2>Demos in the series</h2>
-
-<div class="demos">
-
-  <a class="card" href="https://tjorourke.github.io/solo-demo-agentic-dora/index.html">
-    <span class="tag">01 · Live</span>
-    <h3>TrustUsBank — agentic DORA demo</h3>
-    <p class="summary">
-      A fake retail bank with an AI-powered customer-support chatbot driving three kagent agents
-      over A2A, each backed by MCP tool servers fronted by agentgateway. A third-party
-      currency-converter gets rug-pulled mid-prompt and tries to exfiltrate the customer's PII —
-      the mesh catches it at the wire, not the model. Single-cluster and multi-cluster walkthroughs.
-    </p>
-    <div class="stack">
-      <code>kagent</code>
-      <code>agentgateway</code>
-      <code>MCP rug-pull</code>
-      <code>DORA Article 17</code>
-      <code>kind</code>
-    </div>
-    <span class="cta">Open the demo</span>
-  </a>
-
-  <div class="card soon">
-    <span class="tag">More coming</span>
-    <h3>More demos &amp; patterns soon</h3>
-    <p class="summary">
-      Future entries will cover additional Solo agentic deployment patterns, multi-tenant agent
-      isolation, identity and policy patterns across clusters, and operational best practices for
-      running agentic workloads at scale on Istio Ambient.
-    </p>
+<!-- ── SECTION 1: Agentic Demos ── -->
+<div class="section">
+  <div class="section-label">
+    <div class="section-icon">🤖</div>
+    <h2>Agentic Demos</h2>
   </div>
+
+  <div class="demos">
+
+    <a class="card" href="https://tjorourke.github.io/solo-demo-agentic-dora/index.html">
+      <span class="tag">01 · Live</span>
+      <h3>Rug Pull MCP Hack Demo</h3>
+      <p class="summary">
+        A fake retail bank with an AI-powered chatbot driving three kagent agents over A2A,
+        each backed by MCP tool servers fronted by agentgateway. A third-party
+        currency-converter vendor gets rug-pulled mid-prompt and tries to exfiltrate the
+        customer's PII — the mesh catches it at the wire, not the model.
+      </p>
+      <div class="stack">
+        <code>kagent</code>
+        <code>agentgateway</code>
+        <code>MCP rug-pull</code>
+        <code>DORA Article 17</code>
+        <code>kind</code>
+      </div>
+      <span class="cta">Open the demo</span>
+    </a>
+
+    <div class="card soon">
+      <span class="tag">Coming soon</span>
+      <h3>More agentic demos</h3>
+      <p class="summary">
+        Future demos will cover multi-tenant agent isolation, prompt-injection defences,
+        identity-aware tool routing, and agent supply-chain policy with agentregistry + cosign.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── SECTION 2: Cloud Connectivity Demos ── -->
+<div class="section">
+  <div class="section-label">
+    <div class="section-icon">🌐</div>
+    <h2>Cloud Connectivity Demos</h2>
+  </div>
+
+  <div class="demos">
+
+    <a class="card" href="https://tjorourke.github.io/multi-cluster-kind/">
+      <span class="tag">01 · Live</span>
+      <h3>Multicluster Istio Ambient on kind</h3>
+      <p class="summary">
+        Two kind clusters (<code>east</code> + <code>west</code>) running Istio Ambient with
+        HBONE cross-cluster traffic, shared root CA, and MetalLB LoadBalancer IPs — no cloud
+        account needed. Adapts Ram Vennam's ambient-multicluster-workshop for local laptops.
+      </p>
+      <div class="stack">
+        <code>kind</code>
+        <code>Istio Ambient</code>
+        <code>ztunnel</code>
+        <code>MetalLB</code>
+        <code>multicluster</code>
+      </div>
+      <span class="cta">Open the guide</span>
+    </a>
+
+    <div class="card soon">
+      <span class="tag">Coming soon</span>
+      <h3>More connectivity demos</h3>
+      <p class="summary">
+        Future demos will cover cross-cluster L7 policy, multi-tenant workload isolation
+        across clusters, and east-west gateway patterns with Solo Enterprise for Istio.
+      </p>
+    </div>
+
+  </div>
+
+  <div class="subsection-label">AgentGateway</div>
+
+  <a class="resource-card" href="https://agentgateway-demo.ai.glooplatform.com/ui/" target="_blank" rel="noopener">
+    <div class="rc-left">
+      <span class="rc-tag">External · Solo</span>
+      <div>
+        <div class="rc-name">Solo AgentGateway Live Demo</div>
+        <div class="rc-desc">Interactive playground for agentgateway — routing, guardrails, tool-call policies and observability for LLM traffic.</div>
+      </div>
+    </div>
+    <span class="rc-arrow">↗</span>
+  </a>
 
 </div>
 
@@ -223,8 +324,9 @@
   <h3>Why this series</h3>
   <p>Agentic AI workloads bring a new set of failure modes — prompt injection, supply-chain
   rug-pulls, runaway tool calls — that live <i>below</i> the model layer and need infrastructure
-  defences to match. Each demo here is a concrete answer to one of those questions, runnable on
-  your laptop.</p>
+  defences to match. Multicluster environments add their own complexity: cross-cluster identity,
+  network segmentation, and policy that holds across trust boundaries.</p>
+  <p>Each demo here is a concrete, runnable answer to one of those questions.</p>
 </div>
 
 </main>

@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrustUsBank — AI Customer Support</title>
+  <style>
+    :root {
+      --tb-navy: #0a2540;
+      --tb-blue: #2563eb;
+      --tb-grey: #f3f4f6;
+      --tb-grey-2: #e5e7eb;
+      --tb-text: #111827;
+      --tb-muted: #6b7280;
+      --tb-success: #16a34a;
+      --tb-danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--tb-grey);
+      color: var(--tb-text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: var(--tb-navy);
+      color: white;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header .brand { font-weight: 700; letter-spacing: 0.5px; font-size: 18px; }
+    header .pill {
+      background: rgba(255,255,255,0.1);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      gap: 24px;
+      overflow: hidden;
+    }
+    aside {
+      background: white;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      overflow-y: auto;
+    }
+    aside h3 { margin-top: 0; font-size: 13px; text-transform: uppercase; color: var(--tb-muted); letter-spacing: 0.5px; }
+    aside .agent-row {
+      display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--tb-grey-2);
+      font-size: 14px;
+    }
+    aside .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tb-success); margin-right: 10px; }
+    aside .agent-name { font-weight: 600; }
+    aside .agent-role { font-size: 12px; color: var(--tb-muted); margin-top: 2px; }
+    .chat {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-log {
+      flex: 1;
+      padding: 18px 24px;
+      overflow-y: auto;
+    }
+    .msg {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      margin: 6px 0;
+      line-height: 1.45;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+    .msg.user { background: var(--tb-blue); color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+    .msg.bot { background: var(--tb-grey); color: var(--tb-text); border-bottom-left-radius: 4px; }
+    .msg.system { background: #fff3cd; color: #856404; font-size: 12px; max-width: 100%; text-align: center; }
+    .agent-tag {
+      display: inline-block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+      color: var(--tb-muted);
+    }
+    .composer {
+      display: flex;
+      padding: 14px;
+      border-top: 1px solid var(--tb-grey-2);
+      gap: 8px;
+    }
+    .composer input {
+      flex: 1;
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--tb-grey-2);
+      font-size: 14px;
+      outline: none;
+    }
+    .composer input:focus { border-color: var(--tb-blue); }
+    .composer button {
+      background: var(--tb-blue);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .composer button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .footer-meta {
+      padding: 8px 24px;
+      font-size: 11px;
+      color: var(--tb-muted);
+      text-align: right;
+      border-top: 1px solid var(--tb-grey-2);
+    }
+    .quick {
+      display: flex; gap: 6px; padding: 10px 24px 0; flex-wrap: wrap;
+    }
+    .quick button {
+      background: white;
+      border: 1px solid var(--tb-grey-2);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--tb-text);
+    }
+    .quick button:hover { border-color: var(--tb-blue); color: var(--tb-blue); }
+
+    /* Typing/loading indicator */
+    .msg.typing { background: var(--tb-grey); padding: 14px 18px; max-width: 85px; }
+    .typing .dots { display: inline-flex; gap: 4px; }
+    .typing .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--tb-muted);
+      animation: typing-bounce 1.2s infinite ease-in-out;
+    }
+    .typing .dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing .dot:nth-child(3) { animation-delay: 0.30s; }
+    @keyframes typing-bounce {
+      0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+      30% { opacity: 1; transform: translateY(-4px); }
+    }
+
+    .header-controls { display: flex; gap: 14px; align-items: center; }
+    .debug-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #cbd5e1; cursor: pointer; user-select: none; }
+    .debug-toggle input { cursor: pointer; }
+
+    .debug-block {
+      margin: 6px 0 6px;
+      font-size: 11px;
+      max-width: 100%;
+    }
+    .debug-block summary {
+      cursor: pointer; color: var(--tb-muted); font-family: ui-monospace, monospace;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .debug-block summary::marker { content: ''; }
+    .debug-block summary::-webkit-details-marker { display: none; }
+    .debug-block summary::before { content: '▶ '; }
+    .debug-block[open] summary::before { content: '▼ '; }
+    .debug-toolbar {
+      display: flex; gap: 6px; margin: 6px 0 0;
+      align-items: center;
+    }
+    .debug-toolbar button {
+      background: #1e293b; color: #cbd5e1;
+      border: 1px solid #334155; border-radius: 4px;
+      padding: 3px 8px; font-size: 11px;
+      cursor: pointer; font-family: inherit;
+    }
+    .debug-toolbar button:hover { background: #334155; color: white; }
+    .debug-toolbar button.copied { background: #16a34a; color: white; }
+    .debug-toolbar .grow { flex: 1; }
+    .debug-block pre {
+      background: #0a2540; color: #cbd5e1;
+      padding: 10px; border-radius: 6px;
+      overflow: auto;
+      font-family: ui-monospace, monospace;
+      margin: 0;
+      white-space: pre-wrap; word-break: break-all;
+      max-height: 240px;
+    }
+    .debug-block.expanded pre {
+      max-height: none;
+    }
+    .agent-step {
+      font-size: 12px; color: var(--tb-muted);
+      padding: 4px 10px; border-left: 2px solid var(--tb-grey-2);
+      margin: 4px 0 4px 4px;
+      font-family: ui-monospace, monospace;
+    }
+    .agent-step .tool-name { color: var(--tb-blue); }
+
+    /* Tool-flow visualization: animated cards instead of dense JSON */
+    .flow-tracks {
+      background: #0a2540;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 6px;
+      max-height: 360px; overflow: auto;
+    }
+    .flow-card {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 8px;
+      padding: 8px 10px; margin: 5px 0;
+      background: #112748; border-left: 3px solid #4c6e94;
+      border-radius: 4px;
+      font-family: ui-monospace, monospace; font-size: 11.5px;
+      color: #cbd5e1;
+      opacity: 0;
+      animation: flow-card-in 320ms cubic-bezier(.2,.7,.2,1) forwards;
+    }
+    .flow-card.response   { border-left-color: #16a34a; background: #0e2a1f; }
+    .flow-card.flagged    { border-left-color: #ef4444; background: #2a1414; }
+    .flow-card .arrow     { color: #94a3b8; font-weight: 700; text-align: center; }
+    .flow-card.response .arrow { color: #4ade80; }
+    .flow-card.flagged  .arrow { color: #f87171; }
+    .flow-card .body      { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+    .flow-card .tool      { color: var(--tb-blue); font-weight: 600; }
+    .flow-card.flagged .tool { color: #fca5a5; }
+    .flow-card .label     { color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .flow-card .args      { color: #cbd5e1; font-size: 10.5px; opacity: 0.92; word-break: break-word; }
+    .flow-card .arg-key   { color: #94a3b8; }
+    .flow-card .arg-val   { color: #e2e8f0; }
+    .flow-card .pii-arg   { color: #fca5a5; font-weight: 700; background: #421414; padding: 0 4px; border-radius: 3px; }
+    .flow-card .warn      { color: #fbbf24; font-weight: 600; margin-left: 6px; }
+
+    .flow-summary {
+      display: flex; gap: 10px; align-items: center;
+      padding: 6px 0;
+    }
+    .flow-summary .pill-ok { background: #14532d; color: #86efac; padding: 2px 8px; border-radius: 999px; font-size: 10px; }
+    .flow-summary .pill-warn { background: #7f1d1d; color: #fca5a5; padding: 2px 8px; border-radius: 999px; font-size: 10px; }
+
+    @keyframes flow-card-in {
+      from { opacity: 0; transform: translateX(-12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">TrustUsBank — Customer Support</div>
+    <div class="header-controls">
+      <label class="debug-toggle">
+        <input type="checkbox" id="debug-toggle" checked />
+        <span>debug</span>
+      </label>
+      <div class="pill" id="conn-pill">connecting…</div>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <h3>Agents on this call</h3>
+      <div class="agent-row">
+        <div class="dot"></div>
+        <div>
+          <div class="agent-name">support-bot</div>
+          <div class="agent-role">Front-line customer support</div>
+        </div>
+      </div>
+      <div class="agent-row">
+        <div class="dot"></div>
+        <div>
+          <div class="agent-name">fraud-bot</div>
+          <div class="agent-role">Risk + anomaly classification</div>
+        </div>
+      </div>
+      <div class="agent-row">
+        <div class="dot"></div>
+        <div>
+          <div class="agent-name">triage-bot</div>
+          <div class="agent-role">Human escalation + tickets</div>
+        </div>
+      </div>
+
+    </aside>
+
+    <section class="chat">
+      <div class="chat-log" id="log">
+        <div class="msg system">All conversations are audited. Synthetic accounts only — do not enter real PII.</div>
+        <div class="msg bot"><span class="agent-tag">support-bot</span>Good afternoon. I'm here to help with your TrustUsBank account. How can I assist you today?</div>
+      </div>
+      <div class="quick">
+        <button onclick="quick('Hi, I am customer 12345. What is my balance?')">balance</button>
+        <button onclick="quick('Customer 12345 here — show me my recent transactions, please.')">recent txns</button>
+        <button onclick="quick('Customer 12345, balance please, and convert it to USD.')">balance + USD</button>
+        <button onclick="quick('Customer 12345 — quote my balance in EUR and JPY please.')">balance in EUR/JPY</button>
+        <button onclick="quick('Customer 12345 — there is a 1499 USD charge I do not recognise. Can you check it and open a ticket if it looks dodgy?')">suspicious txn</button>
+      </div>
+      <div class="composer">
+        <input id="prompt" placeholder="Type your question…" autofocus />
+        <button id="send" onclick="send()">Send</button>
+      </div>
+      <div class="footer-meta" id="meta">trace: -</div>
+    </section>
+  </main>
+
+  <script>
+    // Same-origin: nginx in the chatbot pod proxies /api/ → kagent-ui.
+    // No CORS preflight, no localhost coupling.
+    const KAGENT_URL = window.KAGENT_URL || '';
+    const AGENT_NS = 'trustusbank-bank-agents';
+    const AGENT = 'support-bot';
+    const A2A_PATH = `/api/a2a/${AGENT_NS}/${AGENT}/`;
+
+    const log = document.getElementById('log');
+    const promptEl = document.getElementById('prompt');
+    const sendBtn = document.getElementById('send');
+    const metaEl = document.getElementById('meta');
+    const connPill = document.getElementById('conn-pill');
+    const debugToggle = document.getElementById('debug-toggle');
+
+    function add(text, who, agent) {
+      const div = document.createElement('div');
+      div.className = `msg ${who}`;
+      if (agent) {
+        const tag = document.createElement('span');
+        tag.className = 'agent-tag';
+        tag.textContent = agent;
+        div.appendChild(tag);
+      }
+      div.appendChild(document.createTextNode(text));
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+
+    function showTyping() {
+      const div = document.createElement('div');
+      div.className = 'msg bot typing';
+      div.innerHTML = '<span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+
+    // Show a tool-call step (only when debug is on) — legacy text line
+    function addAgentStep(text) {
+      if (!debugToggle.checked) return;
+      const div = document.createElement('div');
+      div.className = 'agent-step';
+      div.innerHTML = text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // ─── tool-flow visualization ───────────────────────────────────
+    // Renders a collapsible block above the raw JSON containing each
+    // function_call / function_response from the A2A history as an
+    // animated card. Cards for get_profile or any call with a PII-shaped
+    // argument get a red flag — that's what makes the rugpull obvious
+    // on stage without anyone having to read the JSON.
+
+    const PII_KEY_HINTS = /^(customer_profile|profile|email|ni_number|dob|address|phone|name)$/i;
+
+    function looksLikePII(v) {
+      if (v == null) return false;
+      if (typeof v === 'object') {
+        for (const k of Object.keys(v)) if (PII_KEY_HINTS.test(k)) return true;
+      }
+      if (typeof v === 'string' && /@|spiffe:|\d{3,}\s+\d{3,}/.test(v)) return false; // partial
+      return false;
+    }
+
+    function compactArgs(args) {
+      if (!args || typeof args !== 'object') return '';
+      const parts = [];
+      for (const [k, v] of Object.entries(args)) {
+        if (PII_KEY_HINTS.test(k) && (typeof v === 'object' || (typeof v === 'string' && v.length > 5))) {
+          parts.push(`<span class="pii-arg">${k}=⚠ PII payload</span>`);
+        } else if (typeof v === 'object' && v !== null) {
+          if (looksLikePII(v)) parts.push(`<span class="pii-arg">${k}=⚠ PII object</span>`);
+          else parts.push(`<span class="arg-key">${k}</span>=<span class="arg-val">${JSON.stringify(v).slice(0, 40)}</span>`);
+        } else {
+          const s = String(v);
+          parts.push(`<span class="arg-key">${k}</span>=<span class="arg-val">${s.slice(0, 40)}${s.length>40?'…':''}</span>`);
+        }
+      }
+      return parts.join(', ');
+    }
+
+    function compactResult(r) {
+      if (r == null) return '<span class="arg-val">(no result)</span>';
+      const s = typeof r === 'string' ? r : JSON.stringify(r);
+      return `<span class="arg-val">${s.slice(0, 80).replace(/</g,'&lt;')}${s.length>80?'…':''}</span>`;
+    }
+
+    function cleanToolName(t) {
+      if (!t) return '?';
+      // kagent prefixes tools with NS-encoded names like
+      // "trustusbank_bank_agents__NS__account-mcp__SEP__get_profile" —
+      // strip the prefix so the demo audience sees just "account-mcp.get_profile".
+      let name = String(t)
+        .replace(/^.*__NS__/, '')
+        .replace(/__SEP__/, '.')
+        .replace(/_/g, '-');
+      // Vendor display: prefix acme-fx/ on the currency-converter calls
+      // so the audience sees the vendor's catalogue name in the flow,
+      // matching what `arctl mcp list` displays.
+      name = name.replace(/^currency-converter\./, 'acme-fx/currency-converter.');
+      return name;
+    }
+
+    function isFlaggedTool(tool, args) {
+      if (!tool) return false;
+      const t = cleanToolName(tool);
+      if (/get_profile/i.test(t)) return true;
+      if (args && typeof args === 'object') {
+        for (const k of Object.keys(args)) {
+          if (PII_KEY_HINTS.test(k)) return true;
+          if (typeof args[k] === 'object' && looksLikePII(args[k])) return true;
+        }
+      }
+      return false;
+    }
+
+    function addToolFlowBlock(history) {
+      if (!debugToggle.checked) return;
+
+      // Walk history → linear list of {type:call|response, tool, args, result}
+      const events = [];
+      for (const h of history || []) {
+        if (h.role !== 'agent') continue;
+        for (const p of h.parts || []) {
+          if (p.kind === 'data' && p.metadata?.kagent_type === 'function_call') {
+            events.push({ type: 'call', tool: p.data?.name || '?', args: p.data?.args || {} });
+          } else if (p.kind === 'data' && p.metadata?.kagent_type === 'function_response') {
+            events.push({ type: 'response', tool: p.data?.name || '?', result: p.data?.response?.result ?? p.data?.response });
+          }
+        }
+      }
+      if (!events.length) return;
+
+      const calls = events.filter(e => e.type === 'call');
+      const flaggedCalls = calls.filter(e => isFlaggedTool(e.tool, e.args));
+      const calledProfile = calls.some(e => /get_profile/i.test(e.tool));
+
+      const det = document.createElement('details');
+      det.className = 'debug-block tool-flow';
+      det.open = true;
+      const sum = document.createElement('summary');
+      sum.innerHTML = `🔧 <strong>tool flow</strong>
+        <span class="flow-summary">
+          <span class="pill-ok">${calls.length} call${calls.length === 1 ? '' : 's'}</span>
+          ${calledProfile ? '<span class="pill-warn">⚠ get_profile invoked</span>' : ''}
+          ${flaggedCalls.length ? `<span class="pill-warn">⚠ ${flaggedCalls.length} flagged</span>` : ''}
+        </span>`;
+
+      const flow = document.createElement('div');
+      flow.className = 'flow-tracks';
+
+      events.forEach((ev, i) => {
+        const card = document.createElement('div');
+        const flagged = ev.type === 'call' && isFlaggedTool(ev.tool, ev.args);
+        card.className = `flow-card ${ev.type}${flagged ? ' flagged' : ''}`;
+        card.style.animationDelay = `${i * 130}ms`;
+
+        const arrow = ev.type === 'call' ? '→' : '←';
+        const body = ev.type === 'call'
+          ? `<span class="label">CALL</span>
+             <span class="tool">${cleanToolName(ev.tool)}</span>
+             <span class="args">(${compactArgs(ev.args)})</span>
+             ${flagged ? '<span class="warn">⚠ PII passed</span>' : ''}`
+          : `<span class="label">RESP</span>
+             <span class="tool">${cleanToolName(ev.tool)}</span>
+             <span class="args">${compactResult(ev.result)}</span>`;
+
+        card.innerHTML = `<span class="arrow">${arrow}</span><div class="body">${body}</div>`;
+        flow.appendChild(card);
+      });
+
+      det.appendChild(sum);
+      det.appendChild(flow);
+      log.appendChild(det);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // Append a collapsible <details> with raw JSON, only when debug is on.
+    // Toolbar: font-size A-/A+, expand-fullscreen, copy.
+    function addDebugBlock(label, payload) {
+      if (!debugToggle.checked) return;
+      const det = document.createElement('details');
+      det.className = 'debug-block';
+      const sum = document.createElement('summary');
+      sum.textContent = label;
+      const pre = document.createElement('pre');
+      let fontSize = 11;
+      pre.style.fontSize = fontSize + 'px';
+      const text = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+      pre.textContent = text;
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'debug-toolbar';
+      toolbar.innerHTML = `
+        <button data-act="smaller">A−</button>
+        <button data-act="larger">A+</button>
+        <button data-act="expand">expand</button>
+        <span class="grow"></span>
+        <button data-act="copy">📋 copy</button>
+      `;
+      toolbar.addEventListener('click', (e) => {
+        const btn = e.target.closest('button'); if (!btn) return;
+        e.preventDefault();
+        const act = btn.dataset.act;
+        if (act === 'smaller') { fontSize = Math.max(9, fontSize - 1); pre.style.fontSize = fontSize + 'px'; }
+        else if (act === 'larger') { fontSize = Math.min(24, fontSize + 1); pre.style.fontSize = fontSize + 'px'; }
+        else if (act === 'expand') {
+          det.classList.toggle('expanded');
+          btn.textContent = det.classList.contains('expanded') ? 'collapse' : 'expand';
+        }
+        else if (act === 'copy') {
+          navigator.clipboard.writeText(text).then(() => {
+            btn.classList.add('copied'); btn.textContent = '✓ copied';
+            setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '📋 copy'; }, 1400);
+          });
+        }
+      });
+
+      det.appendChild(sum);
+      det.appendChild(toolbar);
+      det.appendChild(pre);
+      log.appendChild(det);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function quick(text) {
+      promptEl.value = text;
+      send();
+    }
+
+    async function ping() {
+      try {
+        // The agent's A2A endpoint serves .well-known/agent-card.json
+        // (the current A2A v0.3.0 name). Older builds used /agent.json.
+        const r = await fetch(`${KAGENT_URL}/api/a2a/${AGENT_NS}/${AGENT}/.well-known/agent-card.json`);
+        connPill.textContent = r.ok ? 'connected' : 'unreachable';
+        connPill.style.color = r.ok ? '#86efac' : '#fca5a5';
+      } catch {
+        connPill.textContent = 'unreachable';
+        connPill.style.color = '#fca5a5';
+      }
+    }
+
+    async function send() {
+      const text = promptEl.value.trim();
+      if (!text) return;
+      promptEl.value = '';
+      sendBtn.disabled = true;
+      add(text, 'user');
+
+      // typing indicator while we wait
+      const typingEl = showTyping();
+
+      // Generate a client-side traceparent for completeness, but don't
+      // claim it's the trace ID Tempo will store — the agents and MCP
+      // servers each start their own OTel trace via the SDK, regardless
+      // of this header. Instead, footer becomes a deep-link to Tempo
+      // filtered by the timestamp of THIS request, so clicking surfaces
+      // the trace that actually got emitted.
+      const traceId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+      const requestTimeMs = Date.now();
+      // Tempo Explore URL: search by service.name across the last few
+      // minutes around this request. The most recent trace at the top
+      // is the one we just generated.
+      const tempoStart = Math.floor((requestTimeMs - 60_000) / 1000);
+      const tempoEnd   = Math.floor((requestTimeMs + 60_000) / 1000);
+      const tempoQuery = encodeURIComponent('{resource.service.name="currency-converter"}');
+      const tempoLink  = `${location.origin.replace(/:1800\d/, ':18001')}/explore?` +
+        `schemaVersion=1&panes=` + encodeURIComponent(JSON.stringify({
+          tempo: {
+            datasource: 'tempo',
+            queries: [{ refId: 'A', datasource: { type: 'tempo', uid: 'tempo' },
+                         queryType: 'traceql', query: '{resource.service.name="currency-converter"}' }],
+            range: { from: String(tempoStart * 1000), to: String(tempoEnd * 1000) }
+          }
+        }));
+      metaEl.innerHTML = `<a href="${tempoLink}" target="_blank" rel="noopener" style="color:#7c9bf0;text-decoration:none;">→ open this trace in Tempo</a>`;
+
+      try {
+        // A2A is JSON-RPC over HTTP at the base path
+        const r = await fetch(`${KAGENT_URL}${A2A_PATH}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'traceparent': `00-${traceId.padEnd(32, '0')}-${traceId}-01`,
+          },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: traceId,
+            method: 'message/send',
+            // A2A v0.2+ requires `messageId` (Pydantic enforces it server-side).
+            // Reuse traceId so it correlates with the OTel span.
+            params: {
+              message: {
+                role: 'user',
+                parts: [{ kind: 'text', text }],
+                messageId: traceId,
+              },
+            },
+          }),
+        });
+        const data = await r.json();
+        const result = data?.result || {};
+        const responder = result?.metadata?.kagent_author || 'support-bot';
+
+        // A2A response shape:
+        //   success → result.artifacts[].parts[].text  (final output)
+        //   failure → result.status.message.parts[].text
+        //   history[] contains the running transcript with agent messages and tool calls
+        const cleanAuthor = (a) => (a || '').replace(/^trustusbank_bank_agents__NS__/, '').replace(/_/g, '-');
+        const textParts = (parts) => (parts || [])
+          .filter(p => p?.kind === 'text' && p?.text)
+          .map(p => p.text)
+          .join('\n');
+
+        // Tool-flow visualization comes FIRST (more readable than JSON);
+        // raw JSON appended below after the bot reply renders.
+        addToolFlowBlock(result.history);
+
+        // Final text — try artifacts first, then status.message, then last agent text in history
+        let reply = '';
+        if (result?.artifacts?.length) {
+          reply = result.artifacts.flatMap(a => a.parts || []).filter(p => p?.kind === 'text').map(p => p.text).join('\n');
+        }
+        if (!reply && result?.status?.message?.parts) {
+          reply = textParts(result.status.message.parts);
+        }
+        if (!reply && result?.history?.length) {
+          for (let i = result.history.length - 1; i >= 0; i--) {
+            const h = result.history[i];
+            if (h.role !== 'agent') continue;
+            const t = textParts(h.parts);
+            if (t) { reply = t; break; }
+          }
+        }
+        if (!reply) reply = data?.error?.message || '(empty response)';
+
+        if (result?.status?.state && result.status.state !== 'completed') {
+          reply = `[${result.status.state}] ${reply}`;
+        }
+        add(reply, 'bot', cleanAuthor(responder));
+        addDebugBlock('raw response', data);
+      } catch (e) {
+        add(`(error talking to agent: ${e.message})`, 'bot', 'system');
+      } finally {
+        // remove the typing indicator regardless of outcome
+        if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
+        sendBtn.disabled = false;
+        promptEl.focus();
+      }
+    }
+
+    promptEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+
+    ping();
+    setInterval(ping, 15000);
+  </script>
+</body>
+</html>

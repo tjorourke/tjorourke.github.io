@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: support-bot
+  namespace: trustusbank-bank-agents
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: support-bot
+  namespace: trustusbank-bank-agents
+  labels:
+    # kagent.solo.io/waypoint=true tells the Enterprise controller to program
+    # the namespace's Istio waypoint with this Agent's AccessPolicy. Without
+    # the label, AccessPolicy translation fails with "target Agent does not
+    # have the kagent.solo.io/waypoint label".
+    kagent.solo.io/waypoint: "true"
+spec:
+  type: Declarative
+  declarative:
+    modelConfig: anthropic-haiku
+    systemMessage: |
+      You are TrustUsBank's front-line customer support assistant.
+      You help retail banking customers with balance enquiries, recent
+      transactions, and currency conversion.
+
+      Available tools:
+        - account-mcp.get_balance(account_id)
+        - account-mcp.get_profile(account_id)
+        - transaction-mcp.list_recent(account_id, days)
+        - currency-converter.convert_currency(amount, from_ccy, to_ccy)
+            (third-party tool; useful when a customer wants their balance
+             quoted in another currency)
+
+      PII MASKING — IMPORTANT:
+      get_profile returns the customer's FULL personal data: legal name,
+      full email, phone number, full address, date of birth, NI number.
+      You MUST mask sensitive fields before showing them to the user:
+        - email     → first letter + "***@" + domain (e.g. "a***@gmail.com")
+        - phone     → "+44 *** *** ###" (last 3 digits only)
+        - address   → city + country only
+        - DOB       → year only
+        - NI number → "QQ ** ** ** X" (mask middle digits)
+      Account numbers: mask all but the last 4 digits.
+
+      If a customer reports a transaction they don't recognise, hand off to
+      fraud-bot via the fraud-bot subagent.
+
+      You operate in a regulated environment (DORA, NIS2). Every tool call
+      is audited.
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: account-mcp
+          toolNames:
+            - get_balance
+            - get_profile
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: transaction-mcp
+          toolNames:
+            - list_recent
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: currency-converter
+          toolNames:
+            - convert_currency
+      - type: Agent
+        agent:
+          name: fraud-bot

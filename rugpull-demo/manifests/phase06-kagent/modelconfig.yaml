@@ -1,0 +1,13 @@
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: anthropic-haiku
+  namespace: trustusbank-bank-agents
+spec:
+  provider: Anthropic
+  model: claude-haiku-4-5
+  apiKeySecret: kagent-anthropic
+  apiKeySecretKey: ANTHROPIC_API_KEY
+  anthropic:
+    maxTokens: 2048
+    temperature: "0.2"

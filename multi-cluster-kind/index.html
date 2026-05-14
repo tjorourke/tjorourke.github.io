@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Istio Ambient Multicluster on kind — Tom O'Rourke</title>
+<meta name="description" content="Run the Istio Ambient multicluster workshop locally on kind clusters with MetalLB. Kind-specific setup scripts included.">
+<style>
+  :root {
+    --ink: #0f172a;
+    --muted: #5b6675;
+    --line: rgba(15,23,42,0.10);
+    --bg: #ffffff;
+    --accent: #1cb5d3;
+    --accent-dark: #0891b2;
+    --card-bg: #f8fafc;
+    --card-border: rgba(15,23,42,0.10);
+    --navy: #0a1a3a;
+    --green: #059669;
+    --green-bg: #ecfdf5;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6; font-size: 17px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-dark); text-decoration: underline; }
+
+  header.hero {
+    background: linear-gradient(135deg, var(--navy) 0%, #0f172a 100%);
+    color: #e2e8f0;
+    padding: 80px 32px 72px;
+  }
+  header.hero .wrap { max-width: 1100px; margin: 0 auto; }
+  header.hero .breadcrumb {
+    color: #67e8f9; font-size: 13px; letter-spacing: 0.10em;
+    font-weight: 600; margin-bottom: 20px;
+  }
+  header.hero .breadcrumb a { color: #67e8f9; }
+  header.hero .eyebrow {
+    color: #67e8f9; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase;
+    font-weight: 600; margin-bottom: 16px;
+  }
+  header.hero h1 {
+    font-size: 40px; line-height: 1.1; margin: 0 0 16px;
+    letter-spacing: -0.02em; font-weight: 700; color: #f8fafc;
+    max-width: 900px;
+  }
+  header.hero .sub {
+    font-size: 18px; line-height: 1.55; color: #cbd5e1; max-width: 760px; margin: 0 0 28px;
+  }
+  header.hero .lead-chip {
+    display: inline-block; background: rgba(28,181,211,0.12); border: 1px solid rgba(28,181,211,0.45);
+    color: #67e8f9; padding: 6px 12px; border-radius: 14px;
+    font-size: 13px; font-family: ui-monospace, monospace; margin-right: 8px; margin-bottom: 6px;
+  }
+  header.hero .status-badge {
+    display: inline-block; background: rgba(5,150,105,0.2); border: 1px solid rgba(5,150,105,0.5);
+    color: #6ee7b7; padding: 4px 12px; border-radius: 10px;
+    font-size: 12px; font-weight: 700; margin-bottom: 20px;
+  }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 56px 32px 96px; }
+
+  h2 {
+    font-size: 26px; margin: 48px 0 18px;
+    letter-spacing: -0.005em; font-weight: 700;
+    border-left: 4px solid var(--accent); padding-left: 14px;
+  }
+  h2:first-child { margin-top: 0; }
+  h3 { font-size: 19px; margin: 28px 0 8px; color: var(--ink); font-weight: 700; }
+  h4 { font-size: 16px; margin: 20px 0 6px; color: var(--ink); font-weight: 700; }
+
+  .intro { font-size: 17px; color: #334155; max-width: 820px; margin-bottom: 32px; }
+  .intro p { margin: 0 0 14px; }
+
+  p { margin: 0 0 14px; }
+
+  code {
+    background: rgba(28,181,211,0.08); color: #0e7490;
+    padding: 2px 7px; border-radius: 5px; font-size: 14px;
+    font-family: ui-monospace, "Cascadia Code", monospace;
+    border: 1px solid rgba(28,181,211,0.20);
+  }
+  pre {
+    background: #0f172a; color: #e2e8f0;
+    padding: 20px 24px; border-radius: 10px;
+    overflow-x: auto; font-size: 14px; line-height: 1.6;
+    font-family: ui-monospace, "Cascadia Code", monospace;
+    margin: 16px 0 24px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
+
+  .step {
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 20px 0;
+    background: var(--card-bg);
+    position: relative;
+  }
+  .step .step-num {
+    display: inline-block;
+    background: var(--navy); color: #67e8f9;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.10em;
+    padding: 3px 10px; border-radius: 8px;
+    font-family: ui-monospace, monospace;
+    margin-bottom: 10px;
+  }
+  .step h3 { margin: 0 0 10px; font-size: 18px; }
+  .step p { margin: 0 0 10px; color: #475569; }
+  .step p:last-child { margin-bottom: 0; }
+
+  .note {
+    background: var(--amber-bg);
+    border: 1px solid rgba(217,119,6,0.30);
+    border-left: 4px solid var(--amber);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 15px;
+    color: #92400e;
+  }
+  .note strong { color: #78350f; }
+
+  .tip {
+    background: var(--green-bg);
+    border: 1px solid rgba(5,150,105,0.30);
+    border-left: 4px solid var(--green);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 15px;
+    color: #065f46;
+  }
+
+  .prereqs {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0 28px;
+  }
+  @media (max-width: 640px) { .prereqs { grid-template-columns: 1fr; } }
+  .prereq-item {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 14px 18px;
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .prereq-item .icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+  .prereq-item .name { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+  .prereq-item .install { font-size: 13px; color: var(--muted); font-family: ui-monospace, monospace; }
+
+  .arch-diagram {
+    background: var(--navy); border-radius: 12px; padding: 28px 32px;
+    margin: 24px 0; color: #e2e8f0;
+  }
+  .arch-diagram h4 { color: #67e8f9; margin: 0 0 14px; font-size: 15px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .arch-diagram pre {
+    background: transparent; border: none; margin: 0;
+    color: #cbd5e1; font-size: 13px; padding: 0;
+  }
+
+  .ip-table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 15px; }
+  .ip-table th {
+    text-align: left; padding: 10px 14px;
+    background: var(--navy); color: #67e8f9;
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    font-weight: 700;
+  }
+  .ip-table th:first-child { border-radius: 8px 0 0 0; }
+  .ip-table th:last-child { border-radius: 0 8px 0 0; }
+  .ip-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); color: #334155; }
+  .ip-table td code { font-size: 13px; }
+  .ip-table tr:last-child td { border-bottom: none; }
+  .ip-table tr:nth-child(even) td { background: var(--card-bg); }
+
+  .diff-table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 15px; }
+  .diff-table th {
+    text-align: left; padding: 10px 14px;
+    background: rgba(28,181,211,0.10); color: #0e7490;
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700;
+  }
+  .diff-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .diff-table tr:last-child td { border-bottom: none; }
+  .diff-table .vs { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+
+  .closing {
+    background: var(--navy); color: #cbd5e1; border-radius: 12px;
+    padding: 28px 32px; margin: 48px 0 0;
+  }
+  .closing h3 { color: #f8fafc; margin: 0 0 8px; font-size: 20px; }
+  .closing p { margin: 0 0 6px; }
+  .closing a { color: #67e8f9; }
+  .closing ul { margin: 8px 0; padding-left: 20px; }
+  .closing li { margin-bottom: 6px; }
+
+  footer {
+    max-width: 1100px; margin: 0 auto; padding: 32px;
+    border-top: 1px solid var(--line); color: var(--muted); font-size: 14px;
+    display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between;
+  }
+  footer a { color: var(--accent-dark); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="breadcrumb"><a href="https://tjorourke.github.io/">← All demos</a></div>
+    <div class="eyebrow">Cloud Connectivity · Istio Ambient · Multicluster</div>
+    <div class="status-badge">Live · Runs on kind</div>
+    <h1>Istio Ambient Multicluster on kind</h1>
+    <p class="sub">
+      Run the Istio Ambient multicluster workshop locally — two kind clusters
+      (<code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">east</code> +
+      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">west</code>)
+      with MetalLB for LoadBalancer IPs, no cloud account needed.
+      Based on <a href="https://github.com/rvennam/ambient-multicluster-workshop" style="color:#67e8f9">Ram Vennam's ambient-multicluster-workshop</a>
+      with kind-specific wiring.
+    </p>
+    <span class="lead-chip">kind</span>
+    <span class="lead-chip">Istio Ambient</span>
+    <span class="lead-chip">MetalLB</span>
+    <span class="lead-chip">ztunnel</span>
+    <span class="lead-chip">L4/L7 policy</span>
+  </div>
+</header>
+
+<main>
+
+<div class="intro">
+  <p>
+    This guide adapts Ram Vennam's
+    <a href="https://github.com/rvennam/ambient-multicluster-workshop">ambient-multicluster-workshop</a>
+    to run entirely on your laptop. Instead of cloud-managed clusters you get two
+    <a href="https://kind.sigs.k8s.io/">kind</a> clusters with non-overlapping pod/service CIDRs,
+    and instead of a cloud LoadBalancer you get MetalLB serving IPs from the kind Docker bridge
+    network.
+  </p>
+  <p>
+    The repo contains <strong>setup scripts</strong> for the kind-specific parts
+    (cluster creation + MetalLB). After those run you follow the upstream workshop steps as-is.
+  </p>
+</div>
+
+<h2>What you'll build</h2>
+
+<div class="arch-diagram">
+  <h4>Architecture</h4>
+  <pre>
+  ┌──────────────────────────┐    HBONE (port 15008)    ┌──────────────────────────┐
+  │  kind-east               │ ◄─────────────────────► │  kind-west               │
+  │                          │                          │                          │
+  │  pods: 10.10.0.0/16      │   east-west gateway      │  pods: 10.20.0.0/16      │
+  │  svcs: 10.96.0.0/16      │   (MetalLB LB IP)        │  svcs: 10.97.0.0/16      │
+  │  lb pool: .200-.210       │                          │  lb pool: .220-.230       │
+  │                          │                          │                          │
+  │  ztunnel (DaemonSet)     │                          │  ztunnel (DaemonSet)     │
+  │  istiod (control plane)  │                          │  istiod (control plane)  │
+  └──────────────────────────┘                          └──────────────────────────┘
+         │                                                       │
+         └──────────────── Docker bridge 172.22.0.0/16 ──────────┘
+  </pre>
+</div>
+
+<h2>IP layout</h2>
+
+<table class="ip-table">
+  <thead>
+    <tr>
+      <th>Cluster</th><th>Pod CIDR</th><th>Service CIDR</th><th>MetalLB pool</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>east</strong></td>
+      <td><code>10.10.0.0/16</code></td>
+      <td><code>10.96.0.0/16</code></td>
+      <td><code>172.22.255.200 – 210</code></td>
+    </tr>
+    <tr>
+      <td><strong>west</strong></td>
+      <td><code>10.20.0.0/16</code></td>
+      <td><code>10.97.0.0/16</code></td>
+      <td><code>172.22.255.220 – 230</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p style="color:#475569;font-size:15px">
+  All MetalLB IPs sit in the kind Docker bridge network (<code>172.22.0.0/16</code>) well above
+  the kind node IPs (<code>172.22.0.2–9</code>). This means east-west gateway LoadBalancer IPs
+  are reachable from both clusters without any extra routing.
+</p>
+
+<h2>Prerequisites</h2>
+
+<div class="prereqs">
+  <div class="prereq-item">
+    <div class="icon">🐳</div>
+    <div>
+      <div class="name">Docker Desktop</div>
+      <div class="install">docker.com/products/docker-desktop</div>
+    </div>
+  </div>
+  <div class="prereq-item">
+    <div class="icon">☸️</div>
+    <div>
+      <div class="name">kind</div>
+      <div class="install">brew install kind</div>
+    </div>
+  </div>
+  <div class="prereq-item">
+    <div class="icon">🔧</div>
+    <div>
+      <div class="name">kubectl</div>
+      <div class="install">brew install kubectl</div>
+    </div>
+  </div>
+  <div class="prereq-item">
+    <div class="icon">🌊</div>
+    <div>
+      <div class="name">Helm</div>
+      <div class="install">brew install helm</div>
+    </div>
+  </div>
+  <div class="prereq-item">
+    <div class="icon">🕸️</div>
+    <div>
+      <div class="name">istioctl</div>
+      <div class="install">brew install istioctl</div>
+    </div>
+  </div>
+  <div class="prereq-item">
+    <div class="icon">🖥️</div>
+    <div>
+      <div class="name">k9s (optional)</div>
+      <div class="install">brew install k9s</div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <strong>Docker resources:</strong> give Docker Desktop at least <strong>6 CPU / 8 GB RAM</strong>
+  — two control-plane + worker nodes each running ztunnel and istiod is memory-hungry.
+</div>
+
+<h2>How this repo differs from the upstream workshop</h2>
+
+<table class="diff-table">
+  <thead>
+    <tr><th>Step</th><th>Upstream (cloud)</th><th class="vs">→</th><th>This repo (kind)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Cluster creation</td>
+      <td>Cloud provider CLI (GKE / EKS / AKS)</td>
+      <td class="vs">→</td>
+      <td><code>scripts/01-clusters.sh</code> — runs <code>kind create cluster</code> with preset CIDRs</td>
+    </tr>
+    <tr>
+      <td>LoadBalancer IPs</td>
+      <td>Cloud LB (automatic)</td>
+      <td class="vs">→</td>
+      <td><code>scripts/02-metallb.sh</code> — installs MetalLB + applies non-overlapping IP pools</td>
+    </tr>
+    <tr>
+      <td>Everything else</td>
+      <td colspan="3">Follow <a href="https://github.com/rvennam/ambient-multicluster-workshop">rvennam/ambient-multicluster-workshop</a> exactly</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Setup</h2>
+
+<div class="step">
+  <div class="step-num">STEP 01</div>
+  <h3>Clone this repo</h3>
+  <pre><code>git clone git@github.com:tjorourke/tjorourke.github.io.git
+cd tjorourke.github.io/multi-cluster-kind</code></pre>
+</div>
+
+<div class="step">
+  <div class="step-num">STEP 02</div>
+  <h3>Create east and west kind clusters</h3>
+  <p>This creates two clusters with non-overlapping pod/service CIDRs using the configs in <code>kind/</code>.</p>
+  <pre><code>./scripts/01-clusters.sh</code></pre>
+  <p>Expected output — two new contexts in <code>~/.kube/config</code>:</p>
+  <pre><code>  ✓ cluster 'east' ready
+  ✓ cluster 'west' ready
+
+Contexts:
+*  kind-east
+   kind-west</code></pre>
+</div>
+
+<div class="step">
+  <div class="step-num">STEP 03</div>
+  <h3>Install MetalLB and configure IP pools</h3>
+  <p>
+    Replaces the cloud LoadBalancer. MetalLB v0.14.9 is installed on both clusters.
+    Non-overlapping IP address pools let both east-west gateways get stable IPs reachable
+    from both clusters.
+  </p>
+  <pre><code>./scripts/02-metallb.sh</code></pre>
+  <p>Expected output:</p>
+  <pre><code>  ✓ MetalLB installed
+  ✓ controllers ready
+  ✓ pools applied
+
+LoadBalancer services:
+  east  ...   (none yet — they appear after Istio installs the east-west GW)
+  west  ...   (none yet)</code></pre>
+  <div class="tip">
+    <strong>Why MetalLB?</strong> <code>cloud-provider-kind</code> has a macOS bug where it fails to
+    write the assigned IP back to <code>status.loadBalancer.ingress</code>. MetalLB works reliably.
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">STEP 04</div>
+  <h3>Clone and follow the upstream workshop</h3>
+  <p>
+    From this point, follow Ram's workshop exactly. Clone it alongside your kind setup:
+  </p>
+  <pre><code>git clone https://github.com/rvennam/ambient-multicluster-workshop
+cd ambient-multicluster-workshop</code></pre>
+  <p>
+    The workshop covers:
+  </p>
+  <ul style="color:#475569;font-size:15px;line-height:1.8">
+    <li>Installing Istio in ambient mode on both clusters</li>
+    <li>Setting up a shared root CA + per-cluster intermediates</li>
+    <li>Creating east-west gateways (MetalLB will assign IPs automatically)</li>
+    <li>Enabling cross-cluster endpoint discovery</li>
+    <li>Deploying the sample application across both clusters</li>
+    <li>Verifying cross-cluster traffic with <code>ztunnel</code> L4 and waypoint L7 policy</li>
+  </ul>
+  <p>
+    <a href="https://github.com/rvennam/ambient-multicluster-workshop" style="font-weight:700">
+      → Open ambient-multicluster-workshop on GitHub
+    </a>
+  </p>
+</div>
+
+<div class="step">
+  <div class="step-num">OPTIONAL</div>
+  <h3>Open k9s tabs (macOS)</h3>
+  <p>Opens two Terminal tabs with k9s — one per cluster — for easy side-by-side monitoring.</p>
+  <pre><code>./scripts/k9s-tabs.sh</code></pre>
+</div>
+
+<h2>Troubleshooting</h2>
+
+<h3>MetalLB IPs not appearing on LoadBalancer services</h3>
+<p>Check the MetalLB controller and speaker pods are running:</p>
+<pre><code>kubectl --context=kind-east -n metallb-system get pods
+kubectl --context=kind-west -n metallb-system get pods</code></pre>
+<p>If the speaker pods have permission errors, re-apply the IP pools:</p>
+<pre><code>kubectl --context=kind-east apply -f yaml/metallb/east-pool.yaml
+kubectl --context=kind-west apply -f yaml/metallb/west-pool.yaml</code></pre>
+
+<h3>Clusters can't reach each other's east-west gateway IPs</h3>
+<p>Verify both MetalLB IPs are in the <code>172.22.255.x</code> range and reachable from either cluster's node:</p>
+<pre><code># Get the east-west GW IP on east cluster
+kubectl --context=kind-east -n istio-system get svc istio-eastwestgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+# Curl it from a west cluster pod
+kubectl --context=kind-west exec -it deploy/sleep -- curl http://&lt;east-gw-ip&gt;:15021/healthz/ready</code></pre>
+
+<h3>ztunnel not starting</h3>
+<p>
+  Ensure Docker Desktop has at least 6 CPU / 8 GB RAM. Check ztunnel DaemonSet status:
+</p>
+<pre><code>kubectl --context=kind-east -n istio-system get ds ztunnel
+kubectl --context=kind-east -n istio-system logs ds/ztunnel | tail -30</code></pre>
+
+<h3>Tear down</h3>
+<pre><code>kind delete cluster --name east
+kind delete cluster --name west</code></pre>
+
+<div class="closing">
+  <h3>Resources</h3>
+  <ul>
+    <li><a href="https://github.com/rvennam/ambient-multicluster-workshop">rvennam/ambient-multicluster-workshop</a> — the upstream workshop this adapts</li>
+    <li><a href="https://ambientmesh.io">ambientmesh.io</a> — Istio Ambient documentation</li>
+    <li><a href="https://kind.sigs.k8s.io/">kind.sigs.k8s.io</a> — kind documentation</li>
+    <li><a href="https://metallb.io">metallb.io</a> — MetalLB documentation</li>
+    <li><a href="https://github.com/tjorourke/tjorourke.github.io/tree/main/multi-cluster-kind">Source on GitHub</a></li>
+  </ul>
+</div>
+
+</main>
+
+<footer>
+  <div>Built by <a href="mailto:tom.orourke@solo.io">Tom O'Rourke</a> · <a href="https://tjorourke.github.io/">all demos</a></div>
+  <div><a href="https://github.com/tjorourke">GitHub</a></div>
+</footer>
+
+</body>
+</html>
