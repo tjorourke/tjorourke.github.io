@@ -958,6 +958,14 @@ EOF</code></pre>
   -n bookinfo --context $CLUSTER1 -- curl -s httpbin.org/get</code></pre>
 </div>
 
+<img src="gloo-graph-vm1.png"
+     alt="Gloo Platform graph showing both clusters, vm1 on cluster1, egress-gateway routing to httpbin.org, and cross-cluster mTLS edges"
+     style="width:100%;border-radius:10px;border:1px solid var(--card-border);margin:16px 0 8px">
+<p style="color:#475569;font-size:14px">
+  cluster1 (bottom): bookinfo, vm1 (with istio-eastwest), and egress-gateway routing <code>ratings-v1</code> traffic out to <code>httpbin.org</code>.
+  cluster2 (top): productpage-v1, details-v1, reviews-v1 reachable cross-cluster via mTLS. Lock icons on every edge confirm mutual TLS end-to-end.
+</p>
+
 <h2>Teardown: delete the clusters</h2>
 
 <p>When you're done, delete both kind clusters using the same variables you set during setup. Each command removes the cluster, its kubeconfig context, and the associated Docker networks.</p>
