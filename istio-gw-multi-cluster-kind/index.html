@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="/favicon.png">
-<title>Istio Ambient Multicluster on kind — Tom O'Rourke</title>
+<title>Istio Ingress Gateway &amp; Ambient Multicluster Mesh hosted on Kind — Tom O'Rourke</title>
 <meta name="description" content="Run the Istio Ambient multicluster workshop locally on kind clusters with MetalLB. Kind-specific setup scripts included.">
 <style>
   :root {
@@ -238,7 +238,7 @@
     <div class="breadcrumb"><a href="https://tjorourke.github.io/">← All demos</a></div>
     <div class="eyebrow">Cloud Connectivity · Istio Ambient · Multicluster</div>
     <div class="status-badge">Live · Runs on kind</div>
-    <h1>Istio Ambient Multicluster on kind</h1>
+    <h1>Istio Ingress Gateway &amp; Ambient Multicluster Mesh hosted on Kind</h1>
     <div class="author-card">
       <div class="author-avatar">TO</div>
       <div>
@@ -443,7 +443,7 @@
   switching between them throughout the lab:</p>
   <pre><code># Kind-specific setup scripts (this guide)
 git clone git@github.com:tjorourke/tjorourke.github.io.git
-cd tjorourke.github.io/multi-cluster-kind
+cd tjorourke.github.io/istio-gw-multi-cluster-kind
 
 # Upstream workshop (open alongside this guide)
 git clone https://github.com/rvennam/ambient-multicluster-workshop</code></pre>
@@ -988,7 +988,7 @@ kind delete cluster --name "${CLUSTER2#kind-}"</pre>
     <li><a href="https://ambientmesh.io">ambientmesh.io</a> — Istio Ambient documentation</li>
     <li><a href="https://kind.sigs.k8s.io/">kind.sigs.k8s.io</a> — kind documentation</li>
     <li><a href="https://metallb.io">metallb.io</a> — MetalLB documentation</li>
-    <li><a href="https://github.com/tjorourke/tjorourke.github.io/tree/main/multi-cluster-kind">Source on GitHub</a></li>
+    <li><a href="https://github.com/tjorourke/tjorourke.github.io/tree/main/istio-gw-multi-cluster-kind">Source on GitHub</a></li>
   </ul>
 </div>
 
