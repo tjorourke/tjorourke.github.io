@@ -287,8 +287,8 @@
   ┌──────────────────────────┐    HBONE (port 15008)    ┌──────────────────────────┐
   │  kind-east               │ ◄──────────────────────► │  kind-west               │
   │                          │                          │                          │
-  │  pods: 10.10.0.0/16      │   east-west gateway      │  pods: 10.20.0.0/16      │
-  │  svcs: 10.96.0.0/16      │   (MetalLB LB IP)        │  svcs: 10.97.0.0/16      │
+  │  pods: 10.10.0.0/16      │  Istio EastWest Gateway  │  pods: 10.20.0.0/16      │
+  │  svcs: 10.96.0.0/16      │                          │  svcs: 10.97.0.0/16      │
   │  lb pool: .200-.210      │                          │  lb pool: .220-.230      │
   │                          │                          │                          │
   │  ztunnel (DaemonSet)     │                          │  ztunnel (DaemonSet)     │
