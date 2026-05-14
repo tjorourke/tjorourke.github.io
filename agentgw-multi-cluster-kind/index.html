@@ -860,7 +860,7 @@ done</code></pre>
 <div class="step">
   <div class="step-num">STEP 10</div>
   <h3>Install Solo Enterprise agentgateway</h3>
-  <p>Two helm installs per cluster: CRDs first, then the gateway (controller + Envoy proxy). The chart registers both <code>enterprise-agentgateway</code> (ingress) and <code>enterprise-agentgateway-waypoint</code> (L7 / egress) GatewayClasses.</p>
+  <p>Two helm installs per cluster: CRDs first, then the agentgateway (controller + Rust agentgateway proxy). The chart registers both <code>enterprise-agentgateway</code> (ingress) and <code>enterprise-agentgateway-waypoint</code> (L7 / egress) GatewayClasses.</p>
 
   <h4>Install CRDs</h4>
 <pre><code>for CTX in $CLUSTER1 $CLUSTER2; do
