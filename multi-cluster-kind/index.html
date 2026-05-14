@@ -858,12 +858,32 @@ spec:
     app: vm1
 EOF</code></pre>
   <p>
-    Once enrolled, you can write <code>AuthorizationPolicy</code> rules that reference the
-    <code>vm1</code> service account principal — the same as any in-cluster workload.
-    For example, to allow <code>vm1</code> to reach the <code>productpage</code> service in
-    the <code>bookinfo</code> namespace:
+    Once enrolled, <code>vm1</code> has a SPIFFE identity —
+    <code>cluster.local/ns/vm1/sa/vm1</code> — issued by istiod, backed by the shared root CA,
+    and indistinguishable from any in-cluster pod identity.
   </p>
-  <pre><code>apiVersion: security.istio.io/v1
+  <p>
+    To actually demonstrate this, lock down the <code>bookinfo</code> namespace first with a
+    deny-all, then grant <code>vm1</code> explicit access. Without the deny-all, an ALLOW
+    policy does nothing — Istio allows all traffic by default until any policy exists in scope.
+  </p>
+  <pre><code># 1. Deny all traffic to bookinfo by default
+kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: bookinfo
+spec: {}
+EOF
+
+# 2. Verify vm1 is now denied (from inside the vm1 container)
+# ALL_PROXY=socks5h://127.0.0.1:15080 curl -s productpage.bookinfo:9080/productpage
+# → RBAC: access denied
+
+# 3. Grant vm1 access to productpage only
+kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: allow-vm1-to-productpage
@@ -877,10 +897,16 @@ spec:
   - from:
     - source:
         principals:
-        - "cluster.local/ns/vm1/sa/vm1"</code></pre>
-  <p>The SPIFFE principal <code>cluster.local/ns/&lt;namespace&gt;/sa/&lt;service-account&gt;</code>
-  is the VM's cryptographic identity — issued by istiod and backed by the shared root CA,
-  exactly as it would be for an in-cluster pod.</p>
+        - "cluster.local/ns/vm1/sa/vm1"
+EOF
+
+# 4. vm1 can now reach productpage — but not reviews, ratings, or details
+# ALL_PROXY=socks5h://127.0.0.1:15080 curl -s productpage.bookinfo:9080/productpage</code></pre>
+  <p>
+    The deny-all makes the mesh enforce zero-trust within <code>bookinfo</code>: every caller
+    must be explicitly named. <code>vm1</code> gets access to exactly one service — with no
+    firewall rules, no network segments, and no changes to the application code.
+  </p>
 </div>
 
 <div class="closing">
