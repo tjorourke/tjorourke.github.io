@@ -454,14 +454,7 @@ LoadBalancer services:
 <div class="step">
   <div class="step-num">STEP 04</div>
   <h3>Set cluster env vars, then follow the upstream workshop</h3>
-  <p>
-    These should already be set from Step 2. If you've opened a new terminal, re-export them:
-  </p>
-  <pre><code>export CLUSTER1=kind-east
-export CLUSTER2=kind-west</code></pre>
-  <p>
-    Switch into the workshop directory you cloned in Step 1:
-  </p>
+  <p>Switch into the workshop directory you cloned in Step 1:</p>
   <pre><code>cd ambient-multicluster-workshop</code></pre>
   <p>
     The workshop covers:
@@ -498,28 +491,24 @@ export CLUSTER2=kind-west</code></pre>
 <h2>Workshop fixes for kind</h2>
 
 <p style="color:#475569">
-  The upstream workshop README is mostly correct, but two sections need adjustments when running
-  on kind. Replace the commands listed below when you reach those sections.
+  Two sections in the upstream workshop need replacements on kind. When you reach each section,
+  use the commands below instead of what the upstream README shows.
 </p>
 
 <!-- ── FIX 1: EGRESS GATEWAY ── -->
-<h3>Egress Gateway — add <code>--context=$CLUSTER1</code> to every command</h3>
-
-<p style="color:#475569;font-size:15px">
-  The workshop's egress section says <em>"This section will only use $CLUSTER1"</em> but then
-  omits <code>--context</code> from all six kubectl calls. Use these replacements:
-</p>
-
 <div class="step">
-  <div class="step-num">REPLACE</div>
-  <h3>Create the egress namespace</h3>
-  <pre><code>kubectl --context=$CLUSTER1 create namespace istio-egress</code></pre>
-</div>
+  <div class="step-num">UPSTREAM SECTION</div>
+  <h3>Egress Gateway</h3>
+  <p>
+    The upstream README says <em>"This section will only use $CLUSTER1"</em> but omits
+    <code>--context</code> from every kubectl call. Replace the entire section with the
+    following — the commands are identical, just with <code>--context=$CLUSTER1</code> added:
+  </p>
 
-<div class="step">
-  <div class="step-num">REPLACE</div>
-  <h3>Deploy the egress Gateway</h3>
-  <pre><code>kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
+  <h4>Create namespace and deploy the egress gateway</h4>
+  <pre><code>kubectl --context=$CLUSTER1 create namespace istio-egress
+
+kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -534,18 +523,11 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
-EOF</code></pre>
-</div>
+EOF
 
-<div class="step">
-  <div class="step-num">REPLACE</div>
-  <h3>Label the namespace to use the egress gateway</h3>
-  <pre><code>kubectl --context=$CLUSTER1 label ns istio-egress istio.io/use-waypoint=egress-gateway</code></pre>
-</div>
+kubectl --context=$CLUSTER1 label ns istio-egress istio.io/use-waypoint=egress-gateway</code></pre>
 
-<div class="step">
-  <div class="step-num">REPLACE</div>
-  <h3>Create ServiceEntry + DestinationRule for httpbin.org</h3>
+  <h4>Define httpbin.org as an external host and apply AuthorizationPolicy</h4>
   <pre><code>kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -575,13 +557,7 @@ spec:
   trafficPolicy:
     tls:
       mode: SIMPLE
-EOF</code></pre>
-</div>
-
-<div class="step">
-  <div class="step-num">REPLACE</div>
-  <h3>Apply the AuthorizationPolicy</h3>
-  <pre><code>kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
+---
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -598,11 +574,8 @@ spec:
     - source:
         principals: ["cluster.local/ns/bookinfo/sa/bookinfo-ratings"]
 EOF</code></pre>
-</div>
 
-<div class="step">
-  <div class="step-num">REPLACE</div>
-  <h3>Test from ratings (allowed) and reviews (blocked)</h3>
+  <h4>Test</h4>
   <pre><code># Should succeed — ratings is allowed
 kubectl --context=$CLUSTER1 exec -it \
   $(kubectl --context=$CLUSTER1 get pod -l app=ratings -n bookinfo -o jsonpath='{.items[0].metadata.name}') \
@@ -617,6 +590,11 @@ kubectl --context=$CLUSTER1 exec -it \
 
 <!-- ── FIX 2: BOOTSTRAP TOKEN ── -->
 <h2>BOOTSTRAP_TOKEN fix</h2>
+
+<div class="step" style="margin-bottom:24px">
+  <div class="step-num">UPSTREAM SECTION</div>
+  <h3>Bring VMs into the Mesh — Step 1: Generate the Bootstrap Configuration</h3>
+</div>
 
 <p style="color:#475569">
   The token embedded inside the value that <code>istioctl bootstrap</code> generates does not
