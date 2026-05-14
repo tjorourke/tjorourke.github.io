@@ -416,6 +416,12 @@
       <td>See "Workshop fixes" section below — corrected commands with <code>--context=$CLUSTER1</code></td>
     </tr>
     <tr>
+      <td>Gloo Operator <code>REQUIRE_3P_TOKEN</code></td>
+      <td>Not needed — GKE/EKS issue third-party tokens automatically</td>
+      <td class="vs">→</td>
+      <td>Apply <code>gloo-extensions.yaml</code> to <code>gloo-system</code> after the operator helm install, before the <code>ServiceMeshController</code> CR — see STEP 04</td>
+    </tr>
+    <tr>
       <td>VM bootstrap token</td>
       <td>Requires Solo's <code>istioctl</code>; embedded token has wrong audience for VM XDS auth</td>
       <td class="vs">→</td>
@@ -495,6 +501,30 @@ LoadBalancer services:
 
 <div class="step">
   <div class="step-num">STEP 04</div>
+  <h3>Apply gloo-extensions before installing Istio</h3>
+  <p>
+    The Gloo Operator reads a <code>gloo-extensions-config</code> ConfigMap from <code>gloo-system</code>
+    and passes its values to istiod at install time. On kind, you must set
+    <code>REQUIRE_3P_TOKEN: false</code> — kind clusters only issue first-party tokens, so without
+    this flag istiod rejects the VM ztunnel connection at startup.
+  </p>
+  <p>
+    Apply <strong>after</strong> the Gloo Operator helm install (which creates the <code>gloo-system</code>
+    namespace) and <strong>before</strong> applying the <code>ServiceMeshController</code> CR (which
+    triggers istiod to install). If istiod is already running, restart it after applying.
+  </p>
+  <pre><code>for context in ${CLUSTER1} ${CLUSTER2}; do
+  kubectl --context=${context} apply -f ambient-multicluster-workshop/gloo-extensions.yaml
+done</code></pre>
+  <div class="note">
+    <strong>Why doesn't helm do this?</strong> The <code>gloo-extensions-config</code> ConfigMap is not
+    part of the Gloo Operator helm chart — it is an opt-in extension mechanism. The upstream workshop
+    omits this step because GKE and EKS issue third-party tokens natively and don't need it.
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">STEP 05</div>
   <h3>Set cluster env vars, then follow the upstream workshop</h3>
   <p>Switch into the workshop directory you cloned in Step 1:</p>
   <pre><code>cd ambient-multicluster-workshop</code></pre>
