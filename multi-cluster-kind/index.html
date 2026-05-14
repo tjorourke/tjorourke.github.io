@@ -747,6 +747,22 @@ docker run -d \
   <p>Verify the container is running and has an IP on the kind network:</p>
   <pre><code>docker inspect vm1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'</code></pre>
   <p>You should see an IP in the <code>172.22.0.0/16</code> range.</p>
+  <p>
+    Now wait for <code>dockerd</code> to finish its startup sequence inside the container before
+    proceeding — it takes a few seconds on first run. Poll until <code>docker info</code>
+    succeeds:
+  </p>
+  <pre><code>docker exec vm1 sh -c 'until docker info >/dev/null 2>&1; do echo "waiting for dockerd..."; sleep 2; done && echo "dockerd ready"'</code></pre>
+  <div class="note">
+    <strong>Why <code>--storage-driver=vfs</code>?</strong> Nested Docker (Docker running inside
+    a Docker container) can't use the default <code>overlay2</code> driver because the outer
+    container's filesystem isn't a real block device. <code>vfs</code> is slower but works
+    everywhere — it copies the entire layer on each write. For a demo VM this is fine.
+    If you see <code>failed to start daemon: error initializing graphdriver: driver not supported</code>
+    in the logs, check that <code>--storage-driver=vfs</code> is present.
+  </div>
+  <p>Check the dockerd log if anything looks wrong:</p>
+  <pre><code>docker exec vm1 cat /var/log/dockerd.log | tail -20</code></pre>
 </div>
 
 <div class="step">
