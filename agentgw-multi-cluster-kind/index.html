@@ -285,35 +285,35 @@
 <div class="arch-diagram">
   <h4>Architecture</h4>
   <pre>
-  External traffic                               External traffic
-        │                                               │
-        ▼                                               ▼
+           External traffic                     External traffic
+                   │                                    │
+                   ▼                                    ▼
   ┌────────────────────────────────────────────────────────────────────────────┐
-  │  kind-east-ag              HBONE port 15008         kind-west-ag             │
-  │                    ◄────────────────────────────►                          │
-  │  pods: 10.10.0.0/16       Istio EW GW (fabric)       pods: 10.20.0.0/16  │
-  │  svcs: 10.96.0.0/16                                   svcs: 10.97.0.0/16  │
-  │  lb:   .100–.110                                      lb:   .120–.130     │
+  │ kind-east-ag              HBONE port 15008          kind-west-ag           │
+  │                       ◄────────────────────────────►                       │
+  │ pods: 10.10.0.0/16         Istio EW GW (fabric)          pods: 10.20.0.0/16│
+  │ svcs: 10.96.0.0/16                                       svcs: 10.97.0.0/16│
+  │ lb:   .100–.110                                             lb:   .120–.130│
   │                                                                            │
-  │  ┌───────────────────────────┐        ┌───────────────────────────┐       │
-  │  │ enterprise-agentgateway   │        │ enterprise-agentgateway   │       │
-  │  │ (ingress, :8080)          │        │ (ingress, :8080)          │       │
-  │  │ gatewayClassName:         │        │ gatewayClassName:         │       │
-  │  │   enterprise-agentgateway │        │   enterprise-agentgateway │       │
-  │  └───────────────────────────┘        └───────────────────────────┘       │
-  │             │ HTTPRoute                          │ HTTPRoute               │
-  │             ▼                                    ▼                         │
-  │  ┌───────────────────────────┐        ┌───────────────────────────┐       │
-  │  │ enterprise-agentgateway   │        │ enterprise-agentgateway   │       │
-  │  │ -waypoint (L7 / egress)   │        │ -waypoint (L7 / egress)   │       │
-  │  │ gatewayClassName:         │        │ gatewayClassName:         │       │
-  │  │   ent-agentgateway-       │        │   ent-agentgateway-       │       │
-  │  │   waypoint                │        │   waypoint                │       │
-  │  └───────────────────────────┘        └───────────────────────────┘       │
-  │             │                                    │                         │
-  │  bookinfo (productpage, reviews, ratings …)   bookinfo                    │
-  │  ztunnel (DaemonSet)                          ztunnel (DaemonSet)          │
-  │  istiod-gloo (control plane)                  istiod-gloo                  │
+  │  ┌───────────────────────────┐        ┌───────────────────────────┐        │
+  │  │ enterprise-agentgateway   │        │ enterprise-agentgateway   │        │
+  │  │ (ingress, :8080)          │        │ (ingress, :8080)          │        │
+  │  │ gatewayClassName:         │        │ gatewayClassName:         │        │
+  │  │   enterprise-agentgateway │        │   enterprise-agentgateway │        │
+  │  └───────────────────────────┘        └───────────────────────────┘        │
+  │                │ HTTPRoute                          │ HTTPRoute            │
+  │                ▼                                    ▼                      │
+  │  ┌───────────────────────────┐        ┌───────────────────────────┐        │
+  │  │ enterprise-agentgateway   │        │ enterprise-agentgateway   │        │
+  │  │ -waypoint (L7 / egress)   │        │ -waypoint (L7 / egress)   │        │
+  │  │ gatewayClassName:         │        │ gatewayClassName:         │        │
+  │  │   ent-agentgateway-       │        │   ent-agentgateway-       │        │
+  │  │   waypoint                │        │   waypoint                │        │
+  │  └───────────────────────────┘        └───────────────────────────┘        │
+  │                │                                    │                      │
+  │ bookinfo (productpage, reviews, ratings …)   bookinfo                      │
+  │ ztunnel (DaemonSet)                          ztunnel (DaemonSet)           │
+  │ istiod-gloo (control plane)                  istiod-gloo                   │
   └────────────────────────────────────────────────────────────────────────────┘
                       └──────── Docker bridge ────────┘
   </pre>
