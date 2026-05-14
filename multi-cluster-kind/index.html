@@ -411,8 +411,13 @@ git clone https://github.com/rvennam/ambient-multicluster-workshop</code></pre>
 
 <div class="step">
   <div class="step-num">STEP 02</div>
-  <h3>Create east and west kind clusters</h3>
-  <p>This creates two clusters with non-overlapping pod/service CIDRs using the configs in <code>kind/</code>.</p>
+  <h3>Set cluster variables, then create the clusters</h3>
+  <p>Set these first — both scripts read them, and so does the entire workshop:</p>
+  <pre><code>export CLUSTER1=kind-east
+export CLUSTER2=kind-west</code></pre>
+  <p>Now create both clusters. The script reads <code>$CLUSTER1</code> and <code>$CLUSTER2</code>,
+  strips the <code>kind-</code> prefix to get the cluster name, and looks up the matching config
+  in <code>kind/</code>.</p>
   <pre><code>./scripts/01-clusters.sh</code></pre>
   <p>Expected output — two new contexts in <code>~/.kube/config</code>:</p>
   <pre><code>  ✓ cluster 'east' ready
@@ -450,8 +455,7 @@ LoadBalancer services:
   <div class="step-num">STEP 04</div>
   <h3>Set cluster env vars, then follow the upstream workshop</h3>
   <p>
-    Set these variables — the workshop uses them throughout and so do the kind-specific fixes
-    below. Run these in every new terminal session:
+    These should already be set from Step 2. If you've opened a new terminal, re-export them:
   </p>
   <pre><code>export CLUSTER1=kind-east
 export CLUSTER2=kind-west</code></pre>
