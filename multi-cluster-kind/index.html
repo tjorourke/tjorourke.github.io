@@ -416,6 +416,12 @@
       <td>See "Workshop fixes" section below — corrected commands with <code>--context=$CLUSTER1</code></td>
     </tr>
     <tr>
+      <td>productpage curl</td>
+      <td>MetalLB IP routable on cloud</td>
+      <td class="vs">→</td>
+      <td>MetalLB IP is on Docker bridge — not reachable from macOS host. Use <code>kubectl port-forward</code> instead — see "Workshop fixes" section</td>
+    </tr>
+    <tr>
       <td>VM bootstrap token</td>
       <td>Requires Solo's <code>istioctl</code>; embedded token has wrong audience for VM XDS auth</td>
       <td class="vs">→</td>
@@ -575,7 +581,26 @@ istioctl --context=${CLUSTER1} multicluster expose -n istio-gateways
 istioctl --context=${CLUSTER2} multicluster expose -n istio-gateways</code></pre>
 </div>
 
-<!-- ── FIX 2: EGRESS GATEWAY ── -->
+<!-- ── FIX 2: PRODUCTPAGE CURL ── -->
+<div class="step">
+  <div class="step-num">UPSTREAM SECTION</div>
+  <h3>Enable productpage to be multi-cluster on both clusters</h3>
+  <p>
+    The upstream README tests with:
+  </p>
+  <pre><code>curl $(kubectl get svc -n bookinfo bookinfo-gateway-istio --context $CLUSTER1 \
+  -o jsonpath="{.status.loadBalancer.ingress[0]['hostname','ip']}")/productpage</code></pre>
+  <p>
+    On kind, MetalLB assigns IPs from the Docker bridge network (<code>172.22.x.x</code>) which
+    is not routable from the macOS host. The curl times out. Use <code>kubectl port-forward</code>
+    instead:
+  </p>
+  <pre><code>kubectl --context=${CLUSTER1} -n bookinfo port-forward svc/bookinfo-gateway-istio 8080:80 &
+curl http://localhost:8080/productpage</code></pre>
+  <p>Kill the port-forward when done: <code>kill %1</code></p>
+</div>
+
+<!-- ── FIX 4: EGRESS GATEWAY ── -->
 <div class="step">
   <div class="step-num">UPSTREAM SECTION</div>
   <h3>Egress Gateway</h3>
@@ -668,7 +693,7 @@ kubectl --context=$CLUSTER1 exec -it \
 </div>
 
 
-<!-- ── FIX 3: BOOTSTRAP TOKEN ── -->
+<!-- ── FIX 5: BOOTSTRAP TOKEN ── -->
 <h2>BOOTSTRAP_TOKEN fix</h2>
 
 <div class="step" style="margin-bottom:24px">
