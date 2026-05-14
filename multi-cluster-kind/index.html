@@ -861,16 +861,38 @@ curl productpage.bookinfo.mesh.internal:9080/productpage</code></pre>
 
 <div class="step">
   <div class="step-num">VM STEP 7</div>
-  <h3>Enrol the VM in a WorkloadEntry (optional)</h3>
+  <h3>Enrol the VM in the mesh</h3>
   <p>
-    To make the VM a named, policy-addressable workload in the mesh, create a
-    <code>WorkloadEntry</code> on <code>$CLUSTER1</code>. Replace <code>VM_IP</code> with the IP
-    from VM STEP 3.
+    ztunnel running inside the VM connects to istiod, but the mesh doesn't know about
+    the VM as a workload until you register it. Three resources are needed: a
+    <code>WorkloadGroup</code> (the VM class), a <code>WorkloadEntry</code> (this specific instance),
+    and a <code>ServiceEntry</code> (makes vm1 reachable by name from inside the mesh).
+    The namespace also needs the ambient and network labels.
   </p>
-  <pre><code>VM_IP=$(docker inspect vm1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+  <pre><code># Label the namespace for ambient and set its network
+kubectl --context=$CLUSTER1 label namespace vm1 \
+  istio.io/dataplane-mode=ambient \
+  topology.istio.io/network=cluster1
+
+# Get the VM's IP on the kind network
+VM_IP=$(docker inspect vm1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+echo "vm1 IP: $VM_IP"
 
 kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
-apiVersion: networking.istio.io/v1
+apiVersion: networking.istio.io/v1beta1
+kind: WorkloadGroup
+metadata:
+  name: vm1
+  namespace: vm1
+spec:
+  metadata:
+    labels:
+      app: vm1
+  template:
+    serviceAccount: vm1
+    network: cluster1
+---
+apiVersion: networking.istio.io/v1beta1
 kind: WorkloadEntry
 metadata:
   name: vm1
@@ -881,7 +903,27 @@ spec:
   network: cluster1
   labels:
     app: vm1
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: vm1
+  namespace: vm1
+spec:
+  hosts:
+  - vm1.vm1.svc.cluster.local
+  ports:
+  - number: 9080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: vm1
 EOF</code></pre>
+  <p>Verify the in-cluster ztunnel received the workload address:</p>
+  <pre><code>kubectl -n istio-system logs ds/ztunnel --context=$CLUSTER1 --since=30s | grep "received response"
+# Look for: "type_url":"...istio.workload.Address","size":N  (N should increase)</code></pre>
   <p>
     Once enrolled, <code>vm1</code> has a SPIFFE identity —
     <code>cluster.local/ns/vm1/sa/vm1</code> — issued by istiod, backed by the shared root CA,
