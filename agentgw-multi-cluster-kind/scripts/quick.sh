@@ -209,13 +209,15 @@ done
 # ── Step 6: Pre-pull Solo Istio images ────────────────────────────────────────
 
 step "Pre-pulling Solo Istio images ($ISTIO_TAG)"
+KIND_PLATFORM="linux/$(docker info --format '{{.Architecture}}' | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+log "kind node platform: $KIND_PLATFORM"
 for IMG in pilot proxyv2 install-cni ztunnel; do
   FULL="${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}"
   if docker image inspect "$FULL" >/dev/null 2>&1; then
     log_ok "cached: $IMG"
   else
     log "pulling $IMG..."
-    docker pull --quiet --platform linux/amd64 "$FULL"
+    docker pull --quiet --platform "$KIND_PLATFORM" "$FULL"
     log_ok "$IMG pulled"
   fi
 done
