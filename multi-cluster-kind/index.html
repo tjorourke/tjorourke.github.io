@@ -880,10 +880,10 @@ docker run -d \
     <code>ALWAYS_TRAVERSE_NETWORK_GATEWAY=true</code> tells it to route traffic through the
     east-west gateway rather than trying a direct pod-to-pod path.
   </p>
-  <pre><code># Inside vm1 container:
-export BOOTSTRAP_TOKEN="&lt;paste PATCHED_BOOTSTRAP_TOKEN here&gt;"
-
-docker run -d \
+  <p>First, set the token (replace with your patched value):</p>
+  <pre><code>export BOOTSTRAP_TOKEN="&lt;paste PATCHED_BOOTSTRAP_TOKEN here&gt;"</code></pre>
+  <p>Then run ztunnel:</p>
+  <pre><code>docker run -d \
   --name ztunnel \
   --network host \
   --privileged \
