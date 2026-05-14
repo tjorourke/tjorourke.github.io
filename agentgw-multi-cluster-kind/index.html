@@ -576,8 +576,8 @@ done</code></pre>
 ISTIO_TAG="${ISTIO_VERSION%-solo}"   # strips "-solo" suffix
 
 for IMG in pilot proxyv2 install-cni ztunnel; do
-  docker pull --quiet "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}" 2>/dev/null \
-    || docker pull "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}"
+  docker pull --quiet --platform linux/amd64 "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}" 2>/dev/null \
+    || docker pull --platform linux/amd64 "${ISTIO_REGISTRY}/${IMG}:${ISTIO_TAG}"
 done
 
 for CLUSTER_NAME in east west; do

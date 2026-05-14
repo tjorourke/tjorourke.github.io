@@ -215,7 +215,7 @@ for IMG in pilot proxyv2 install-cni ztunnel; do
     log_ok "cached: $IMG"
   else
     log "pulling $IMG..."
-    docker pull --quiet "$FULL"
+    docker pull --quiet --platform linux/amd64 "$FULL"
     log_ok "$IMG pulled"
   fi
 done
