@@ -627,7 +627,7 @@ done</code></pre>
 
   <h4>Patch mesh components — required env vars for Ambient peering</h4>
   <p>The Gloo Operator 0.5.2 SMC schema doesn't yet expose the <code>platforms.peering.enabled</code> flag that direct Helm installs use to wire these automatically. Two vars must be set explicitly — each on the correct component
-  (<a href="https://docs.solo.io/gloo-mesh/latest/ambient/multicluster/troubleshooting/#step-9-verify-required-environment-variables" target="_blank">Solo docs: required peering env vars</a>):</p>
+  (<a href="https://docs.solo.io/gloo-mesh/latest/ambient/multicluster/" target="_blank">Solo docs: Ambient multicluster</a>):</p>
   <ul>
     <li><code>PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES=false</code> on <strong>istiod</strong> — enables Ambient endpoint rewriting (cross-cluster endpoints resolve via east-west gateway, not K8s WorkloadEntries)</li>
     <li><code>L7_ENABLED=true</code> on <strong>ztunnel</strong> — enables L7-aware HBONE tunnelling through waypoints</li>
