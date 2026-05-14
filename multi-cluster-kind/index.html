@@ -966,6 +966,101 @@ kubectl --context=$CLUSTER1 delete authorizationpolicy deny-vm1 -n bookinfo</cod
   </p>
 </div>
 
+<h2>Gloo Platform management plane (optional)</h2>
+
+<p style="color:#475569">
+  The workshop works without this — it is purely an observability overlay.
+  Install the Gloo Platform management server on cluster1 to get the service
+  graph, telemetry aggregation, and cross-cluster inventory UI across both clusters.
+</p>
+
+<div class="step">
+  <div class="step-num">MGMT STEP 1</div>
+  <h3>Install Gloo Platform on cluster1</h3>
+  <pre><code>helm repo add gloo-platform https://storage.googleapis.com/gloo-platform/helm-charts
+helm repo update
+
+helm upgrade -i gloo-platform-crds gloo-platform/gloo-platform-crds \
+  -n gloo-mesh --create-namespace --version=2.12.0 \
+  --set installEnterpriseCrds=false \
+  --kube-context=$CLUSTER1
+
+helm upgrade -i gloo-platform gloo-platform/gloo-platform \
+  -n gloo-mesh --version 2.12.0 \
+  --kube-context=$CLUSTER1 \
+  --values mgmt-values.yaml \
+  --set licensing.glooMeshLicenseKey=$GLOO_MESH_LICENSE_KEY</code></pre>
+</div>
+
+<div class="step">
+  <div class="step-num">MGMT STEP 2</div>
+  <h3>Register cluster2 as a workload cluster</h3>
+  <pre><code>export TELEMETRY_GATEWAY_ADDRESS=$(kubectl get svc -n gloo-mesh gloo-telemetry-gateway \
+  --context $CLUSTER1 -o jsonpath="{.status.loadBalancer.ingress[0]['hostname','ip']}"):4317
+
+meshctl cluster register cluster2 \
+  --kubecontext $CLUSTER1 \
+  --profiles gloo-mesh-agent \
+  --remote-context $CLUSTER2 \
+  --telemetry-server-address $TELEMETRY_GATEWAY_ADDRESS</code></pre>
+  <p>Both clusters show <code>STATUS: ACCEPTED</code> once the agent connects:</p>
+  <pre><code>kubectl get kubernetescluster -A --context $CLUSTER1</code></pre>
+</div>
+
+<div class="step">
+  <div class="step-num">MGMT STEP 3</div>
+  <h3>Open the dashboard</h3>
+  <pre><code>kubectl port-forward -n gloo-mesh svc/gloo-mesh-ui 8090:8090 --context $CLUSTER1</code></pre>
+  <p>
+    Browse to <a href="http://localhost:8090" style="color:var(--accent)">http://localhost:8090</a>.
+    Navigate to <strong>Observability → Graph</strong> and click
+    <strong>"View the original Graph experience"</strong> — the new graph experience
+    requires Workspace CRDs which are not installed (<code>installEnterpriseCrds=false</code>).
+  </p>
+  <div class="note">
+    <strong>Why <code>installEnterpriseCrds=false</code> and what are Workspace CRDs?</strong>
+    <br><br>
+    Ram's workshop installs Gloo Platform purely as a <em>telemetry and observability overlay</em> —
+    no policy federation. The enterprise CRDs (<code>Workspace</code>,
+    <code>WorkspaceSettings</code>, <code>AccessPolicy</code>, <code>VirtualDestination</code>,
+    etc.) are what enable Solo Mesh's multi-cluster governance layer on top of Istio.
+    They are deliberately excluded here so the install stays lightweight.
+    <br><br>
+    <strong>What Workspace unlocks:</strong> a <code>Workspace</code> scopes a set of
+    namespaces across clusters into a logical tenant. Once defined, you can apply
+    <code>AccessPolicy</code> with cross-cluster service account subjects, federate
+    services across clusters without <code>ServiceEntry</code> YAML, and use
+    <code>WorkspaceSettings</code> to control what each tenant can import/export.
+    The new graph experience also requires at least one Workspace to know what scope
+    to query — without it the graph returns <code>Code: INTERNAL</code>.
+    <br><br>
+    <strong>To enable it:</strong> reinstall with <code>installEnterpriseCrds=true</code>
+    and create a <code>Workspace</code> + <code>WorkspaceSettings</code> covering your
+    namespaces. This is the full Solo Mesh governance path and is covered in the
+    <a href="https://docs.solo.io/gloo-mesh-enterprise/main/" style="color:#92400e">Gloo Mesh Enterprise docs</a>.
+  </div>
+  <p>
+    Generate in-cluster traffic first so the graph has data to render (the graph only
+    shows workloads with live metrics — port-forward traffic bypasses the mesh):
+  </p>
+  <pre><code>kubectl run vm1-load --image=curlimages/curl -n bookinfo --context $CLUSTER1 \
+  -- sh -c 'while true; do curl -s -o /dev/null http://vm1.vm1.svc.cluster.local:9080/; sleep 1; done'</code></pre>
+
+  <p>
+    Once traffic flows, the graph shows <code>vm1</code> alongside in-cluster pods —
+    same identity model, same policy surface, no special treatment:
+  </p>
+  <img src="images/gloo-graph-vm1.png"
+       alt="Gloo Platform graph showing vm1 WorkloadEntry alongside bookinfo pods in cluster1, with cross-cluster edge to details-v1 on cluster2"
+       style="width:100%;border-radius:10px;border:1px solid var(--card-border);margin:16px 0 8px">
+  <p style="color:#475569;font-size:14px">
+    cluster1 (left): <code>vm1-load</code> pod and <code>istio-eastwest</code> gateway
+    (carrying vm1's SPIFFE identity) both connect to <code>vm1</code> WorkloadEntry and
+    <code>productpage-v1</code>. Cross-cluster mTLS edge to <code>details-v1</code> on
+    cluster2 (right). Lock icons confirm mutual TLS on every hop.
+  </p>
+</div>
+
 <div class="closing">
   <h3>Resources</h3>
   <ul>
