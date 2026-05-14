@@ -642,10 +642,28 @@ kubectl --context=$CLUSTER1 exec -it \
 
 <p style="color:#475569;margin-top:16px">
   The <code>bootstrap</code> command generates a double base64-encoded JSON envelope containing
-  the istiod URL, CA cert, and a service account token. On kind, the embedded token has the
-  wrong audience for VM XDS authentication — it uses the default Kubernetes API server audience
-  (<code>kubernetes.default.svc.cluster.local</code>) but istiod requires <code>istio-ca</code>.
-  The workaround decodes the envelope, replaces just the token field, and re-encodes it.
+  the istiod URL, CA cert, and a service account token. The embedded token is a legacy SA Secret
+  token with <code>aud: kubernetes.default.svc.cluster.local</code>, but istiod's VM XDS
+  authenticator validates tokens against <code>audience: istio-ca</code> — these never match.
+</p>
+<div class="note" style="margin-top:0">
+  <strong>Why does this fail here but not in Ram's workshop?</strong>
+  On GKE/EKS, standard upstream Istio defaults to <code>jwtPolicy: third-party-jwt</code>
+  on clusters that support the TokenRequest API. In that mode, <code>istioctl bootstrap</code>
+  generates a projected token already bound to <code>audience: istio-ca</code> — the
+  right audience reaches istiod and no workaround is needed.
+  Here, the Gloo Operator sets <code>PILOT_JWT_POLICY=first-party-jwt</code> on istiod,
+  which causes <code>istioctl bootstrap</code> to fall back to the legacy SA Secret token
+  with the wrong audience. This would fail on GKE/EKS too with the same Gloo Operator
+  configuration — it is not a kind-specific quirk.
+  The fix belongs in Solo's <code>istioctl bootstrap</code>: it should call the TokenRequest
+  API with <code>audiences: ["istio-ca"]</code> rather than reading from the SA Secret.
+  (<a href="https://github.com/istio/istio/issues/31964" style="color:#92400e">istio#31964</a>,
+  <a href="https://github.com/istio/istio/issues/34293" style="color:#92400e">istio#34293</a>)
+</div>
+<p style="color:#475569">
+  The workaround decodes the envelope, replaces just the token field with a properly scoped
+  TokenRequest token, and re-encodes it.
 </p>
 
 <div class="step">
