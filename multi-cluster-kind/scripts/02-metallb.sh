@@ -28,7 +28,7 @@ METALLB_URL="https://raw.githubusercontent.com/metallb/metallb/${METALLB_VERSION
 # ── Detect kind network CIDR ──────────────────────────────────────────────────
 log "detecting kind network CIDR..."
 KIND_CIDR=$(docker network inspect kind \
-  --format '{{range .IPAM.Config}}{{if .Subnet}}{{.Subnet}}{{end}}{{end}}' 2>/dev/null \
+  --format '{{range .IPAM.Config}}{{if .Subnet}}{{println .Subnet}}{{end}}{{end}}' 2>/dev/null \
   | grep -v ':' | head -1 || true)
 
 [[ -n "$KIND_CIDR" ]] || die "Could not detect kind network CIDR — is the kind network up? Run scripts/01-clusters.sh first."
