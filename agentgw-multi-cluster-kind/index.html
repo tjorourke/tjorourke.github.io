@@ -914,11 +914,7 @@ kubectl --context $CLUSTER2 label namespace agentgateway-system \
 <div class="step">
   <div class="step-num">STEP 11</div>
   <h3>Expose productpage — <code>enterprise-agentgateway</code> ingress</h3>
-  <p>Replaces the upstream workshop's <code>gatewayClassName: istio</code> Gateway. Deploy to <strong>$CLUSTER1</strong> — this is where you'll access bookinfo from.</p>
-
-  <div class="note">
-    <strong>Same YAML shape as the upstream workshop</strong> — only <code>gatewayClassName</code> changes. The <code>HTTPRoute</code> and listener structure are identical.
-  </div>
+  <p>Create a Gateway and HTTPRoute to expose productpage on port 8080. Deploy to <strong>$CLUSTER1</strong> — this is where you'll access bookinfo from.</p>
 <pre><code>kubectl --context $CLUSTER1 apply -f - &lt;&lt;'EOF'
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -926,7 +922,7 @@ metadata:
   name: bookinfo-gateway
   namespace: bookinfo
 spec:
-  gatewayClassName: enterprise-agentgateway   # ← was "istio"
+  gatewayClassName: enterprise-agentgateway
   listeners:
   - name: http
     port: 8080
@@ -1012,11 +1008,10 @@ kubectl --context $CLUSTER1 scale deploy details-v1 -n bookinfo --replicas=1</co
 <div class="step">
   <div class="step-num">STEP 13</div>
   <h3>L7 policy — <code>enterprise-agentgateway-waypoint</code></h3>
-  <p>Replaces <code>gatewayClassName: istio-waypoint</code>. Deploy the waypoint to the bookinfo namespace, then apply an HTTPRoute to control reviews traffic.</p>
+  <p>Deploy a waypoint to the bookinfo namespace, then apply an HTTPRoute to control reviews traffic.</p>
 
   <div class="note">
-    <strong>Same YAML shape as the upstream workshop</strong> — <code>gatewayClassName</code> and <code>port</code> change; everything else is identical.
-    <br>Port <code>15088</code> is the inbound application listener for the enterprise waypoint (vs <code>15008</code> HBONE termination).
+    Port <code>15088</code> is the inbound application listener for the enterprise waypoint (not <code>15008</code>, which is HBONE termination).
   </div>
 
   <h4>Deploy enterprise-agentgateway-waypoint</h4>
@@ -1029,10 +1024,10 @@ metadata:
   labels:
     istio.io/waypoint-for: namespace
 spec:
-  gatewayClassName: enterprise-agentgateway-waypoint   # ← was "istio-waypoint"
+  gatewayClassName: enterprise-agentgateway-waypoint
   listeners:
   - name: mesh
-    port: 15088                                          # ← was 15008
+    port: 15088
     protocol: HTTP
 EOF</code></pre>
 
@@ -1092,7 +1087,7 @@ kubectl --context $CLUSTER1 label namespace bookinfo \
 <div class="step">
   <div class="step-num">STEP 14</div>
   <h3>Egress gateway — <code>enterprise-agentgateway-waypoint</code></h3>
-  <p>Controls which workloads can reach external services. Replaces <code>gatewayClassName: istio-waypoint</code> in the egress namespace.</p>
+  <p>Controls which workloads can reach external services using an <code>enterprise-agentgateway-waypoint</code> in a dedicated egress namespace.</p>
 
   <h4>Create namespace and deploy egress gateway</h4>
 <pre><code>kubectl --context $CLUSTER1 create namespace istio-egress
@@ -1106,10 +1101,10 @@ metadata:
   labels:
     istio.io/waypoint-for: service
 spec:
-  gatewayClassName: enterprise-agentgateway-waypoint   # ← was "istio-waypoint"
+  gatewayClassName: enterprise-agentgateway-waypoint
   listeners:
   - name: mesh
-    port: 15088                                          # ← was 15008
+    port: 15088
     protocol: HTTP
     allowedRoutes:
       namespaces:
