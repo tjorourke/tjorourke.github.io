@@ -931,6 +931,33 @@ EOF</code></pre>
   </p>
 </div>
 
+<h2>Simulate traffic</h2>
+
+<p style="color:#475569">Run these to generate live mesh traffic so the Gloo graph has metrics to render.</p>
+
+<div class="step">
+  <div class="step-num">TRAFFIC 1</div>
+  <h3>vm1 → productpage (start / stop)</h3>
+  <p>Start a continuous load from vm1 into the bookinfo mesh:</p>
+  <pre><code>kubectl run vm1-load --image=curlimages/curl -n bookinfo --context $CLUSTER1 \
+  -- sh -c 'while true; do curl -s -o /dev/null http://vm1.vm1.svc.cluster.local:9080/; sleep 1; done'</code></pre>
+  <p>Stop it:</p>
+  <pre><code>kubectl delete pod vm1-load -n bookinfo --context $CLUSTER1</code></pre>
+</div>
+
+<div class="step">
+  <div class="step-num">TRAFFIC 2</div>
+  <h3>ratings → httpbin.org via egress gateway</h3>
+  <p>Send traffic through the egress gateway from the <code>ratings</code> pod (allowed by the AuthorizationPolicy):</p>
+  <pre><code>kubectl exec -it $(kubectl get pod -l app=ratings -n bookinfo --context $CLUSTER1 \
+  -o jsonpath='{.items[0].metadata.name}') \
+  -n bookinfo --context $CLUSTER1 -- curl -s httpbin.org/get</code></pre>
+  <p>Confirm <code>reviews</code> is blocked (no egress policy allows it):</p>
+  <pre><code>kubectl exec -it $(kubectl get pod -l app=reviews -n bookinfo --context $CLUSTER1 \
+  -o jsonpath='{.items[0].metadata.name}') \
+  -n bookinfo --context $CLUSTER1 -- curl -s httpbin.org/get</code></pre>
+</div>
+
 <h2>Teardown: delete the clusters</h2>
 
 <p>When you're done, delete both kind clusters using the same variables you set during setup. Each command removes the cluster, its kubeconfig context, and the associated Docker networks.</p>
