@@ -22,7 +22,7 @@ NAME2=west-ag
 GLOO_OPERATOR_VERSION="${GLOO_OPERATOR_VERSION:-0.5.2}"
 SOLO_ISTIO_VERSION="${SOLO_ISTIO_VERSION:-1.29.0-solo}"
 ISTIO_VERSION_OPERATOR="${SOLO_ISTIO_VERSION%-solo}"
-AGW_VERSION="${AGW_VERSION:-2.3.0}"
+AGW_VERSION="${AGW_VERSION:-2.1.1}"
 GATEWAY_API_VERSION="${GATEWAY_API_VERSION:-v1.2.1}"
 METALLB_VERSION="${METALLB_VERSION:-v0.14.9}"
 ISTIO_REGISTRY="us-docker.pkg.dev/soloio-img/istio"
@@ -483,7 +483,7 @@ log_ok "productpage labelled global"
 step "Installing Enterprise agentgateway CRDs v$AGW_VERSION"
 for CTX in "$CLUSTER1" "$CLUSTER2"; do
   helm upgrade --install agentgateway-crds \
-    oci://us-docker.pkg.dev/solo-public/agentgateway-enterprise/charts/enterprise-agentgateway-crds \
+    oci://us-docker.pkg.dev/solo-public/enterprise-agentgateway/charts/enterprise-agentgateway-crds \
     --kube-context "$CTX" \
     --namespace agentgateway-system \
     --version "$AGW_VERSION" \
@@ -495,7 +495,7 @@ step "Installing Enterprise agentgateway control plane"
 for PAIR in "${CLUSTER1}:${NAME1}" "${CLUSTER2}:${NAME2}"; do
   CTX="${PAIR%%:*}"; NAME="${PAIR##*:}"
   helm upgrade --install enterprise-agentgateway \
-    oci://us-docker.pkg.dev/solo-public/agentgateway-enterprise/charts/enterprise-agentgateway \
+    oci://us-docker.pkg.dev/solo-public/enterprise-agentgateway/charts/enterprise-agentgateway \
     --kube-context "$CTX" \
     --namespace agentgateway-system \
     --version "$AGW_VERSION" \

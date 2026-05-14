@@ -444,7 +444,7 @@ export ISTIO_VERSION=1.29.0-solo
 export ISTIO_VERSION_OPERATOR="${ISTIO_VERSION%-solo}"   # strips "-solo" for the operator
 export GLOO_OPERATOR_VERSION=0.5.2
 export GATEWAY_API_VERSION=v1.2.1
-export AGW_VERSION=2.3.0</code></pre>
+export AGW_VERSION=2.1.1</code></pre>
 </div>
 
 <!-- ── STEP 01 ── -->
@@ -865,7 +865,7 @@ done</code></pre>
   <h4>Install CRDs</h4>
 <pre><code>for CTX in $CLUSTER1 $CLUSTER2; do
   helm upgrade --install agentgateway-crds \
-    oci://us-docker.pkg.dev/solo-public/agentgateway-enterprise/charts/enterprise-agentgateway-crds \
+    oci://us-docker.pkg.dev/solo-public/enterprise-agentgateway/charts/enterprise-agentgateway-crds \
     --kube-context $CTX \
     --namespace agentgateway-system --create-namespace \
     --version $AGW_VERSION \
@@ -874,7 +874,7 @@ done</code></pre>
 
   <h4>Install Enterprise agentgateway control plane</h4>
 <pre><code>helm upgrade --install enterprise-agentgateway \
-  oci://us-docker.pkg.dev/solo-public/agentgateway-enterprise/charts/enterprise-agentgateway \
+  oci://us-docker.pkg.dev/solo-public/enterprise-agentgateway/charts/enterprise-agentgateway \
   --kube-context $CLUSTER1 \
   --namespace agentgateway-system \
   --version $AGW_VERSION \
@@ -883,7 +883,7 @@ done</code></pre>
   --wait
 
 helm upgrade --install enterprise-agentgateway \
-  oci://us-docker.pkg.dev/solo-public/agentgateway-enterprise/charts/enterprise-agentgateway \
+  oci://us-docker.pkg.dev/solo-public/enterprise-agentgateway/charts/enterprise-agentgateway \
   --kube-context $CLUSTER2 \
   --namespace agentgateway-system \
   --version $AGW_VERSION \
