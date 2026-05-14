@@ -891,10 +891,11 @@ docker run -d \
   -e ALWAYS_TRAVERSE_NETWORK_GATEWAY=true \
   us-docker.pkg.dev/gloo-mesh/istio-e6283d67ad60/ztunnel:1.29.0-solo-distroless</code></pre>
   <p>Check ztunnel logs to confirm it connected to istiod:</p>
-  <pre><code>docker logs ztunnel 2>&amp;1 | grep -E 'connected|error|WARN' | head -20</code></pre>
+  <pre><code>docker logs ztunnel 2>&amp;1 | grep -E 'Stream established|license|ready|error|WARN'</code></pre>
   <p>A successful startup looks like:</p>
-  <pre><code>INFO ztunnel::proxy: connected to istiod at &lt;east-gw-ip&gt;:15012
-INFO ztunnel::proxy: xds connection established</code></pre>
+  <pre><code>info    xds::client:xds{id=1}    Stream established
+info    xds::client:xds{id=1}    detected license    state=OK
+info    readiness    Task 'state manager' complete ... marking server ready</code></pre>
 </div>
 
 <div class="step">
