@@ -902,8 +902,8 @@ EOF</code></pre>
     <code>DENY</code> for <code>vm1</code> only. All in-cluster bookinfo services keep talking
     to each other normally — only the VM is blocked.
   </p>
-  <pre><code># 1. Deny vm1 from reaching any bookinfo service
-kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
+  <p><strong>1. Apply the deny policy:</strong></p>
+  <pre><code>kubectl --context=$CLUSTER1 apply -f - &lt;&lt;EOF
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -916,16 +916,13 @@ spec:
     - source:
         principals:
         - "cluster.local/ns/vm1/sa/vm1"
-EOF
-
-# 2. Verify vm1 is denied (from inside the vm1 container)
-ALL_PROXY=socks5h://127.0.0.1:15080 curl -s productpage.bookinfo:9080/productpage
-# → RBAC: access denied
-
-# 3. In-cluster services are unaffected — bookinfo still works from the browser
-
-# 4. Remove the policy to restore vm1 access
-kubectl --context=$CLUSTER1 delete authorizationpolicy deny-vm1 -n bookinfo</code></pre>
+EOF</code></pre>
+  <p><strong>2. Verify vm1 is denied</strong> (run inside the vm1 container):</p>
+  <pre><code>ALL_PROXY=socks5h://127.0.0.1:15080 curl -s productpage.bookinfo:9080/productpage
+# → RBAC: access denied</code></pre>
+  <p><strong>3. In-cluster services are unaffected</strong> — bookinfo still works from the browser.</p>
+  <p><strong>4. Remove the policy to restore vm1 access:</strong></p>
+  <pre><code>kubectl --context=$CLUSTER1 delete authorizationpolicy deny-vm1 -n bookinfo</code></pre>
   <p>
     <code>DENY</code> takes precedence over any <code>ALLOW</code> — it cannot be overridden
     by another policy. This is the right tool for "this workload must never reach these
