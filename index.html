@@ -67,9 +67,10 @@
 
   /* ── TAB BAR ── */
   .tab-bar-wrap {
-    background: #ffffff;
-    border-bottom: 2px solid var(--line);
-    box-shadow: 0 2px 8px rgba(15,23,42,0.07);
+    background: #f8fafc;
+    border-top: 3px solid var(--accent);
+    border-bottom: 1px solid #cbd5e1;
+    box-shadow: 0 3px 12px rgba(15,23,42,0.10);
     position: sticky; top: 0; z-index: 100;
   }
   .tab-bar {
@@ -80,28 +81,29 @@
   .tab-bar::-webkit-scrollbar { display: none; }
   .tab-btn {
     display: flex; align-items: center; gap: 8px;
-    padding: 16px 22px; border: none; background: none;
-    color: var(--muted); font-size: 14px; font-weight: 600;
+    padding: 14px 22px; border: none; background: none;
+    color: #334155; font-size: 14px; font-weight: 700;
     cursor: pointer; white-space: nowrap;
     border-bottom: 3px solid transparent;
-    transition: color 0.15s, border-color 0.15s;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
     font-family: inherit;
   }
-  .tab-btn .tab-icon { font-size: 16px; }
+  .tab-btn .tab-icon { font-size: 15px; }
   .tab-btn .tab-count {
-    background: var(--card-bg); color: var(--muted);
-    border: 1px solid var(--card-border);
+    background: #e2e8f0; color: #475569;
+    border: 1px solid #cbd5e1;
     font-size: 11px; font-weight: 700; padding: 1px 7px;
     border-radius: 10px; font-family: ui-monospace, monospace;
   }
-  .tab-btn:hover { color: var(--ink); }
+  .tab-btn:hover { color: var(--accent-dark); background: rgba(28,181,211,0.06); }
   .tab-btn.active {
     color: var(--accent-dark);
     border-bottom-color: var(--accent);
+    background: rgba(28,181,211,0.08);
   }
   .tab-btn.active .tab-count {
-    background: rgba(28,181,211,0.12); color: var(--accent-dark);
-    border-color: rgba(28,181,211,0.30);
+    background: rgba(28,181,211,0.18); color: var(--accent-dark);
+    border-color: rgba(28,181,211,0.40);
   }
 
   /* ── FILTER BAR ── */
@@ -330,7 +332,7 @@
     </button>
     <button class="tab-btn" data-tab="resources">
       <span class="tab-icon">🔗</span> Resources &amp; Links
-      <span class="tab-count" id="count-resources">3</span>
+      <span class="tab-count" id="count-resources">8</span>
     </button>
   </div>
 </div>
@@ -543,6 +545,86 @@
         <span class="rc-arrow">↗</span>
       </a>
 
+      <a class="resource-card"
+         href="https://github.com/ably77/solo-enterprise-for-istio-workshops/tree/main/istio-ambient-multicluster"
+         target="_blank" rel="noopener"
+         data-tags="workshop solo istio-ambient multicluster github"
+         data-title="Solo Enterprise for Istio — Ambient Multicluster Workshop"
+         data-desc="Numbered lab series (000-014) by ably77 covering mesh installation, workload enrollment, traffic management, security policies, and observability for Istio Ambient across two clusters using the Bookinfo sample app.">
+        <div class="rc-left">
+          <span class="rc-tag">Workshop · Solo · GitHub</span>
+          <div>
+            <div class="rc-name">Solo Enterprise for Istio — Ambient Multicluster Workshop</div>
+            <div class="rc-desc">14-lab series by ably77 covering mesh install, enrollment, traffic management, security policies, and observability across two clusters. Uses Bookinfo as the reference workload.</div>
+          </div>
+        </div>
+        <span class="rc-arrow">↗</span>
+      </a>
+
+      <a class="resource-card"
+         href="https://github.com/rvennam/ambient-multicluster-workshop"
+         target="_blank" rel="noopener"
+         data-tags="workshop istio-ambient multicluster github"
+         data-title="Ambient Multicluster Workshop (rvennam)"
+         data-desc="Comprehensive workshop by Ram Vennam covering cluster peering, L7 traffic policies with Waypoints, egress gateways, VM integration, and Gloo Management Plane deployment — with full shell commands and YAML.">
+        <div class="rc-left">
+          <span class="rc-tag">Workshop · GitHub</span>
+          <div>
+            <div class="rc-name">Ambient Multicluster Workshop (rvennam)</div>
+            <div class="rc-desc">End-to-end workshop by Ram Vennam — cluster peering, L7 Waypoints, egress gateways, VM integration, and Gloo Management Plane, with detailed shell commands and YAML throughout.</div>
+          </div>
+        </div>
+        <span class="rc-arrow">↗</span>
+      </a>
+
+      <a class="resource-card"
+         href="https://github.com/ably77/solo-enterprise-for-istio-workshops/tree/main"
+         target="_blank" rel="noopener"
+         data-tags="workshop solo istio-ambient multicluster github openshift"
+         data-title="Solo Enterprise for Istio — All Workshops"
+         data-desc="Five workshop tracks by ably77: single-cluster, single-cluster on OpenShift, multi-cluster, multi-cluster on OpenShift, and an OSS sidecar-to-Ambient migration path. Covers ingress/egress control, mTLS, waypoints, and multicluster routing.">
+        <div class="rc-left">
+          <span class="rc-tag">Workshop · Solo · GitHub</span>
+          <div>
+            <div class="rc-name">Solo Enterprise for Istio — All Workshops (ably77)</div>
+            <div class="rc-desc">Five tracks: single-cluster, single-cluster on OpenShift, multi-cluster, multi-cluster on OpenShift, and OSS sidecar-to-Ambient migration. Covers ingress/egress, mTLS, waypoints, and multicluster routing.</div>
+          </div>
+        </div>
+        <span class="rc-arrow">↗</span>
+      </a>
+
+      <a class="resource-card"
+         href="https://github.com/rvennam/ambient-multicluster-workshop/blob/main/README_helm.md"
+         target="_blank" rel="noopener"
+         data-tags="workshop istio-ambient multicluster helm github"
+         data-title="Ambient Multicluster — Helm Install Guide"
+         data-desc="Step-by-step Helm-based guide by Ram Vennam for deploying Istio Ambient multicluster — east-west gateways, L7 Waypoints, egress, Gloo Management Plane, and AuthorizationPolicies using Solo's Istio distribution.">
+        <div class="rc-left">
+          <span class="rc-tag">Guide · Helm · GitHub</span>
+          <div>
+            <div class="rc-name">Ambient Multicluster — Helm Install Guide (rvennam)</div>
+            <div class="rc-desc">Helm-based variant of the multicluster workshop. East-west gateways, L7 Waypoints, egress, Gloo Management Plane, and AuthorizationPolicies using Solo's Istio distribution.</div>
+          </div>
+        </div>
+        <span class="rc-arrow">↗</span>
+      </a>
+
+      <a class="resource-card"
+         href="https://gist.github.com/rvennam/ac4c293e5dcd05da5e9cb030b922f3c4"
+         target="_blank" rel="noopener"
+         data-tags="workshop agentgateway mcp istio-ambient github"
+         data-title="AgentGateway + MCP + Istio Ambient — Workshop Gist"
+         data-desc="Workshop gist by Ram Vennam deploying Solo Enterprise AgentGateway v2.3.3 as a security layer for MCP servers in Istio Ambient. Progressive labs: infrastructure setup, gateway deployment, workload identity, JWT auth, and OAuth2 token exchange.">
+        <div class="rc-left">
+          <span class="rc-tag">Workshop · AgentGateway · Gist</span>
+          <div>
+            <div class="rc-name">AgentGateway + MCP + Istio Ambient — Workshop Gist (rvennam)</div>
+            <div class="rc-desc">Deploys Solo Enterprise AgentGateway v2.3.3 as a security layer for MCP servers in Istio Ambient. Progressive labs covering workload identity, JWT auth, and OAuth2 token exchange.</div>
+          </div>
+        </div>
+        <span class="rc-arrow">↗</span>
+      </a>
+
     </div>
     <div class="empty-state" id="empty-resources" style="display:none">
       <div class="empty-icon">🔍</div>
@@ -580,14 +662,15 @@
     agentic:      ['all','live','soon','kagent','agentgateway','mcp','kind'],
     connectivity: ['all','live','kind','istio-ambient','multicluster','agentgateway','ztunnel'],
     knowledge:    ['all','soon','prometheus','istio-ambient','multicluster'],
-    resources:    ['all','external','solo','github','docs']
+    resources:    ['all','workshop','external','solo','github','docs','agentgateway','istio-ambient','multicluster']
   };
   var pillLabels = {
     'all':'All','live':'Live','soon':'Coming Soon','kagent':'kagent',
     'agentgateway':'agentgateway','mcp':'MCP','kind':'kind','dora':'DORA',
     'istio-ambient':'Istio Ambient','multicluster':'multicluster','ztunnel':'ztunnel',
     'metalLB':'MetalLB','prometheus':'Prometheus','alertmanager':'Alertmanager',
-    'wds':'WDS/WADS','external':'External','solo':'Solo','github':'GitHub','docs':'Docs'
+    'wds':'WDS/WADS','external':'External','solo':'Solo','github':'GitHub','docs':'Docs',
+    'workshop':'Workshop','helm':'Helm','openshift':'OpenShift'
   };
 
   // ── DOM refs ──
