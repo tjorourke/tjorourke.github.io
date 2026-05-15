@@ -250,10 +250,10 @@
       The <a href="https://github.com/rvennam/ambient-multicluster-workshop" style="color:#67e8f9">ambient-multicluster-workshop</a>
       flow on two kind clusters
       (<code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">east-ag</code> +
-      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">west-ag</code>),
-      with Solo Enterprise agentgateway replacing every Istio gateway type —
-      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">enterprise-agentgateway</code> for ingress, and
-      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">enterprise-agentgateway-waypoint</code> for L7 ambient waypoint + egress.
+      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">west-ag</code>):
+      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">enterprise-agentgateway</code> as the north-south ingress,
+      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">enterprise-agentgateway-waypoint</code> for in-cluster L7 ambient policy and egress,
+      and Solo Istio's HBONE peering for the east-west mesh fabric.
       No cloud account needed.
     </p>
     <span class="lead-chip">enterprise-agentgateway</span>
