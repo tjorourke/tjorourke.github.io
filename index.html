@@ -67,8 +67,9 @@
 
   /* ── TAB BAR ── */
   .tab-bar-wrap {
-    background: var(--navy);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: #ffffff;
+    border-bottom: 2px solid var(--line);
+    box-shadow: 0 2px 8px rgba(15,23,42,0.07);
     position: sticky; top: 0; z-index: 100;
   }
   .tab-bar {
@@ -79,8 +80,8 @@
   .tab-bar::-webkit-scrollbar { display: none; }
   .tab-btn {
     display: flex; align-items: center; gap: 8px;
-    padding: 16px 20px; border: none; background: none;
-    color: #94a3b8; font-size: 14px; font-weight: 600;
+    padding: 16px 22px; border: none; background: none;
+    color: var(--muted); font-size: 14px; font-weight: 600;
     cursor: pointer; white-space: nowrap;
     border-bottom: 3px solid transparent;
     transition: color 0.15s, border-color 0.15s;
@@ -88,17 +89,19 @@
   }
   .tab-btn .tab-icon { font-size: 16px; }
   .tab-btn .tab-count {
-    background: rgba(255,255,255,0.10); color: #94a3b8;
+    background: var(--card-bg); color: var(--muted);
+    border: 1px solid var(--card-border);
     font-size: 11px; font-weight: 700; padding: 1px 7px;
     border-radius: 10px; font-family: ui-monospace, monospace;
   }
-  .tab-btn:hover { color: #e2e8f0; }
+  .tab-btn:hover { color: var(--ink); }
   .tab-btn.active {
-    color: #67e8f9;
+    color: var(--accent-dark);
     border-bottom-color: var(--accent);
   }
   .tab-btn.active .tab-count {
-    background: rgba(28,181,211,0.20); color: #67e8f9;
+    background: rgba(28,181,211,0.12); color: var(--accent-dark);
+    border-color: rgba(28,181,211,0.30);
   }
 
   /* ── FILTER BAR ── */
