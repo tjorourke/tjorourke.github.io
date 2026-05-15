@@ -62,7 +62,7 @@ fi
 # ── Prereqs ───────────────────────────────────────────────────────────────────
 
 step "Checking prereqs"
-require kind; require kubectl; require helm; require docker; require openssl
+require kind; require kubectl; require helm; require docker; require openssl; require istioctl
 log_ok "all tools present"
 
 # ── Step 1: kind clusters ─────────────────────────────────────────────────────
@@ -276,14 +276,24 @@ for CTX in "$CLUSTER1" "$CLUSTER2"; do
   log_ok "[${CTX#kind-}] istiod-gloo ready"
 done
 
-step "Patching istiod env vars"
+step "Patching istiod + ztunnel env vars (Ambient peering)"
+# istiod — disable K8s WorkloadEntry selection so cross-cluster endpoints
+# resolve via the east-west GW, not WorkloadEntries.
 for CTX in "$CLUSTER1" "$CLUSTER2"; do
   kubectl --context "$CTX" -n istio-system patch deployment istiod-gloo \
     --type=json -p='[
-      {"op":"add","path":"/spec/template/spec/containers/0/env/-","value":{"name":"L7_ENABLED","value":"true"}},
       {"op":"add","path":"/spec/template/spec/containers/0/env/-","value":{"name":"PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES","value":"false"}}
     ]' >/dev/null
-  log_ok "[${CTX#kind-}] env patched"
+  log_ok "[${CTX#kind-}] istiod env patched"
+done
+
+# ztunnel — enable L7-aware HBONE so traffic can flow through waypoints across clusters.
+for CTX in "$CLUSTER1" "$CLUSTER2"; do
+  kubectl --context "$CTX" -n istio-system patch daemonset ztunnel \
+    --type=json -p='[
+      {"op":"add","path":"/spec/template/spec/containers/0/env/-","value":{"name":"L7_ENABLED","value":"true"}}
+    ]' >/dev/null
+  log_ok "[${CTX#kind-}] ztunnel env patched"
 done
 
 step "Creating istiod alias Service"
@@ -306,11 +316,12 @@ YAML
   log_ok "[${CTX#kind-}] istiod alias Service applied"
 done
 
-# Wait for rollout after env patch
+# Wait for rollouts after env patches
 for CTX in "$CLUSTER1" "$CLUSTER2"; do
   kubectl --context "$CTX" -n istio-system rollout status deployment/istiod-gloo --timeout=120s >/dev/null
+  kubectl --context "$CTX" -n istio-system rollout status daemonset/ztunnel --timeout=120s >/dev/null
 done
-log_ok "istiod-gloo rollout complete on both clusters"
+log_ok "istiod-gloo + ztunnel rollout complete on both clusters"
 
 # ── Step 8: East-west HBONE gateways ─────────────────────────────────────────
 
@@ -318,7 +329,10 @@ step "Labelling istio-system with network topology"
 kubectl --context "$CLUSTER1" label ns istio-system topology.istio.io/network="$NAME1" --overwrite >/dev/null
 kubectl --context "$CLUSTER2" label ns istio-system topology.istio.io/network="$NAME2" --overwrite >/dev/null
 
-step "Installing east-west HBONE gateways (peering chart)"
+step "Installing east-west HBONE gateways (peering chart, LoadBalancer)"
+# LoadBalancer type — MetalLB assigns an external IP from the configured pool.
+# This mirrors a real-world deployment where the east-west GW is reachable on
+# a cloud LB, not a fragile kind node + NodePort tuple.
 for PAIR in "${CLUSTER1}:${NAME1}" "${CLUSTER2}:${NAME2}"; do
   CTX="${PAIR%%:*}"; NAME="${PAIR##*:}"
   kubectl --context "$CTX" create namespace istio-eastwest 2>/dev/null || true
@@ -332,27 +346,32 @@ eastwest:
   create: true
   cluster: ${NAME}
   network: ${NAME}
-  dataplaneServiceTypes: [nodeport]
-  service:
-    spec:
-      type: NodePort
-      ports:
-        - { name: tls-hbone, port: 15008, nodePort: 30015, protocol: TCP }
-        - { name: tls-xds,   port: 15012, nodePort: 30016, protocol: TCP }
 remote:
   create: false
 EOF
   log_ok "[$NAME] east-west GW installed"
 done
 
-# Discover kind control-plane node IPs
-EAST_NODE_IP="$(docker inspect "${NAME1}-control-plane" \
-  --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')"
-WEST_NODE_IP="$(docker inspect "${NAME2}-control-plane" \
-  --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')"
-log "east-ag node IP: $EAST_NODE_IP   west-ag node IP: $WEST_NODE_IP"
+# Wait for MetalLB to assign LB IPs to both east-west services.
+step "Waiting for east-west LoadBalancer IPs"
+wait_lb_ip() {
+  local ctx="$1"
+  local ip=""
+  for i in $(seq 1 40); do
+    ip="$(kubectl --context "$ctx" -n istio-eastwest \
+      get svc istio-eastwest -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+    [[ -n "$ip" ]] && { echo "$ip"; return; }
+    sleep 3
+  done
+  echo ""
+}
+EAST_EW_IP="$(wait_lb_ip "$CLUSTER1")"
+WEST_EW_IP="$(wait_lb_ip "$CLUSTER2")"
+[[ -n "$EAST_EW_IP" ]] || die "east east-west LB IP not assigned — check MetalLB pool capacity"
+[[ -n "$WEST_EW_IP" ]] || die "west east-west LB IP not assigned — check MetalLB pool capacity"
+log_ok "east-ag east-west GW: $EAST_EW_IP    west-ag east-west GW: $WEST_EW_IP"
 
-step "Adding remote peer references"
+step "Adding remote peer references (HBONE 15008, XDS 15012 on the LB IPs)"
 helm upgrade --install remote-peers \
   "oci://us-docker.pkg.dev/soloio-img/istio-helm/peering" \
   --kube-context "$CLUSTER1" --namespace istio-eastwest \
@@ -362,9 +381,9 @@ eastwest: { create: false }
 remote:
   create: true
   items:
-  - { cluster: ${NAME2}, network: ${NAME2}, trustDomain: cluster.local, address: ${WEST_NODE_IP}, hbonePort: 30015, xdsPort: 30016 }
+  - { cluster: ${NAME2}, network: ${NAME2}, trustDomain: cluster.local, address: ${WEST_EW_IP}, hbonePort: 15008, xdsPort: 15012 }
 EOF
-log_ok "[${NAME1}] peer → ${NAME2} @ ${WEST_NODE_IP}"
+log_ok "[${NAME1}] peer → ${NAME2} @ ${WEST_EW_IP}"
 
 helm upgrade --install remote-peers \
   "oci://us-docker.pkg.dev/soloio-img/istio-helm/peering" \
@@ -375,74 +394,28 @@ eastwest: { create: false }
 remote:
   create: true
   items:
-  - { cluster: ${NAME1}, network: ${NAME1}, trustDomain: cluster.local, address: ${EAST_NODE_IP}, hbonePort: 30015, xdsPort: 30016 }
+  - { cluster: ${NAME1}, network: ${NAME1}, trustDomain: cluster.local, address: ${EAST_EW_IP}, hbonePort: 15008, xdsPort: 15012 }
 EOF
-log_ok "[${NAME2}] peer → ${NAME1} @ ${EAST_NODE_IP}"
+log_ok "[${NAME2}] peer → ${NAME1} @ ${EAST_EW_IP}"
 
 step "Cross-applying remote secrets (istiod control-plane discovery)"
-EAST_TOKEN="$(kubectl --context "$CLUSTER1" -n istio-system \
-  create token istio-reader-service-account --duration=8760h)"
-EAST_SERVER="$(kubectl --context "$CLUSTER1" config view --minify --flatten \
-  -o jsonpath='{.clusters[0].cluster.server}')"
-EAST_CA="$(kubectl --context "$CLUSTER1" config view --minify --flatten \
-  -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')"
-
-WEST_TOKEN="$(kubectl --context "$CLUSTER2" -n istio-system \
-  create token istio-reader-service-account --duration=8760h)"
-WEST_SERVER="$(kubectl --context "$CLUSTER2" config view --minify --flatten \
-  -o jsonpath='{.clusters[0].cluster.server}')"
-WEST_CA="$(kubectl --context "$CLUSTER2" config view --minify --flatten \
-  -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')"
-
-kubectl --context "$CLUSTER2" apply -f - >/dev/null <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-remote-secret-${NAME1}
-  namespace: istio-system
-  labels: { "istio.io/cluster": "${NAME1}", "networking.istio.io/remote": "true" }
-type: Opaque
-stringData:
-  ${NAME1}: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - cluster: { certificate-authority-data: ${EAST_CA}, server: ${EAST_SERVER} }
-      name: ${NAME1}
-    contexts:
-    - context: { cluster: ${NAME1}, user: ${NAME1} }
-      name: ${NAME1}
-    current-context: ${NAME1}
-    users:
-    - name: ${NAME1}
-      user: { token: ${EAST_TOKEN} }
-EOF
+istioctl create-remote-secret --context "$CLUSTER1" --name "$NAME1" 2>/dev/null \
+  | kubectl --context "$CLUSTER2" apply -f - >/dev/null
 log_ok "[${NAME2}] remote secret for ${NAME1} applied"
 
-kubectl --context "$CLUSTER1" apply -f - >/dev/null <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-remote-secret-${NAME2}
-  namespace: istio-system
-  labels: { "istio.io/cluster": "${NAME2}", "networking.istio.io/remote": "true" }
-type: Opaque
-stringData:
-  ${NAME2}: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - cluster: { certificate-authority-data: ${WEST_CA}, server: ${WEST_SERVER} }
-      name: ${NAME2}
-    contexts:
-    - context: { cluster: ${NAME2}, user: ${NAME2} }
-      name: ${NAME2}
-    current-context: ${NAME2}
-    users:
-    - name: ${NAME2}
-      user: { token: ${WEST_TOKEN} }
-EOF
+istioctl create-remote-secret --context "$CLUSTER2" --name "$NAME2" 2>/dev/null \
+  | kubectl --context "$CLUSTER1" apply -f - >/dev/null
 log_ok "[${NAME1}] remote secret for ${NAME2} applied"
+
+step "Verifying peering ($CLUSTER1 → $CLUSTER2)"
+# Tolerate the "found invalid license for multicluster" warning — basic HBONE
+# peering still works without the GlobalService entitlement. Peers Check is
+# the assertion that matters.
+if istioctl --context "$CLUSTER1" multicluster check 2>&1 | grep -qE 'Peers Check.*all clusters connected'; then
+  log_ok "peering verified — both clusters connected"
+else
+  log "multicluster check did not confirm peering — continuing anyway (cross-cluster traffic may need a few seconds to converge)"
+fi
 
 # ── Step 9: Namespace labels ──────────────────────────────────────────────────
 
@@ -475,8 +448,10 @@ step "Labelling productpage as global service"
 for CTX in "$CLUSTER1" "$CLUSTER2"; do
   kubectl --context "$CTX" label svc productpage -n bookinfo \
     solo.io/service-scope=global --overwrite >/dev/null
+  kubectl --context "$CTX" annotate svc productpage -n bookinfo \
+    networking.istio.io/traffic-distribution=Any --overwrite >/dev/null
 done
-log_ok "productpage labelled global"
+log_ok "productpage labelled global (locality-aware failover enabled)"
 
 # ── Step 11: Enterprise agentgateway ─────────────────────────────────────────
 

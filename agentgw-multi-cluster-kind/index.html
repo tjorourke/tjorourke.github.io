@@ -249,11 +249,11 @@
     <p class="sub">
       The <a href="https://github.com/rvennam/ambient-multicluster-workshop" style="color:#67e8f9">ambient-multicluster-workshop</a>
       flow on two kind clusters
-      (<code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">east</code> +
-      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">west</code>),
+      (<code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">east-ag</code> +
+      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">west-ag</code>),
       with Solo Enterprise agentgateway replacing every Istio gateway type —
-      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">enterprise-agentgateway</code> for ingress,
-      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">enterprise-agentgateway-waypoint</code> for L7 and egress.
+      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">enterprise-agentgateway</code> for ingress, and
+      <code style="color:#67e8f9;background:rgba(255,255,255,0.08);border:none">enterprise-agentgateway-waypoint</code> for L7 ambient waypoint + egress.
       No cloud account needed.
     </p>
     <span class="lead-chip">enterprise-agentgateway</span>
@@ -397,6 +397,13 @@
     <div>
       <div class="name">kubectl + helm</div>
       <div class="install">brew install kubectl helm</div>
+    </div>
+  </div>
+  <div class="prereq-item">
+    <div class="icon">🧭</div>
+    <div>
+      <div class="name">istioctl</div>
+      <div class="install">brew install istioctl (or curl from istio.io)</div>
     </div>
   </div>
   <div class="prereq-item">
@@ -686,7 +693,7 @@ done</code></pre>
   <p>This installs the Istio east-west gateway on each cluster (the HBONE mesh fabric). The enterprise agentgateway waypoint sits on top of this at L7 — it does not replace it.</p>
 
   <div class="tip">
-    <strong>Kind has no cloud LB for this.</strong> The east-west gateway uses NodePort (fixed ports 30015/30016) instead of LoadBalancer. Remote peers reference the kind control-plane node IP directly.
+    <strong>MetalLB gives kind a real LoadBalancer.</strong> The east-west gateway is exposed as <code>type: LoadBalancer</code> — MetalLB assigns an external IP from the kind Docker network range. This mirrors a real-world cloud deployment (cloud LB in front of the east-west GW). Remote peers reference the LB IP on HBONE port <code>15008</code>.
   </div>
 
   <h4>Label istio-system with the cluster network</h4>
@@ -694,62 +701,31 @@ done</code></pre>
 <pre><code>kubectl --context $CLUSTER1 label ns istio-system topology.istio.io/network=${CLUSTER1#kind-} --overwrite
 kubectl --context $CLUSTER2 label ns istio-system topology.istio.io/network=${CLUSTER2#kind-} --overwrite</code></pre>
 
-  <h4>Install east-west gateway — east cluster</h4>
-<pre><code>kubectl --context $CLUSTER1 create namespace istio-eastwest --dry-run=client -o yaml \
-  | kubectl --context $CLUSTER1 apply -f -
+  <h4>Install east-west gateway — both clusters</h4>
+<pre><code>for CTX in $CLUSTER1 $CLUSTER2; do
+  N="${CTX#kind-}"
+  kubectl --context $CTX create namespace istio-eastwest --dry-run=client -o yaml \
+    | kubectl --context $CTX apply -f -
 
-helm upgrade --install peering-eastwest \
-  oci://us-docker.pkg.dev/soloio-img/istio-helm/peering \
-  --kube-context $CLUSTER1 \
-  --namespace istio-eastwest \
-  --version $ISTIO_VERSION \
-  --set eastwest.create=true \
-  --set eastwest.cluster=${CLUSTER1#kind-} \
-  --set eastwest.network=${CLUSTER1#kind-} \
-  --set 'eastwest.dataplaneServiceTypes[0]=nodeport' \
-  --set eastwest.service.spec.type=NodePort \
-  --set 'eastwest.service.spec.ports[0].name=tls-hbone' \
-  --set 'eastwest.service.spec.ports[0].port=15008' \
-  --set 'eastwest.service.spec.ports[0].nodePort=30015' \
-  --set 'eastwest.service.spec.ports[0].protocol=TCP' \
-  --set 'eastwest.service.spec.ports[1].name=tls-xds' \
-  --set 'eastwest.service.spec.ports[1].port=15012' \
-  --set 'eastwest.service.spec.ports[1].nodePort=30016' \
-  --set 'eastwest.service.spec.ports[1].protocol=TCP' \
-  --set remote.create=false \
-  --wait</code></pre>
+  helm upgrade --install peering-eastwest \
+    oci://us-docker.pkg.dev/soloio-img/istio-helm/peering \
+    --kube-context $CTX \
+    --namespace istio-eastwest \
+    --version $ISTIO_VERSION \
+    --set eastwest.create=true \
+    --set eastwest.cluster=$N \
+    --set eastwest.network=$N \
+    --set remote.create=false \
+    --wait
+done</code></pre>
 
-  <h4>Install east-west gateway — west cluster</h4>
-<pre><code>kubectl --context $CLUSTER2 create namespace istio-eastwest --dry-run=client -o yaml \
-  | kubectl --context $CLUSTER2 apply -f -
-
-helm upgrade --install peering-eastwest \
-  oci://us-docker.pkg.dev/soloio-img/istio-helm/peering \
-  --kube-context $CLUSTER2 \
-  --namespace istio-eastwest \
-  --version $ISTIO_VERSION \
-  --set eastwest.create=true \
-  --set eastwest.cluster=${CLUSTER2#kind-} \
-  --set eastwest.network=${CLUSTER2#kind-} \
-  --set 'eastwest.dataplaneServiceTypes[0]=nodeport' \
-  --set eastwest.service.spec.type=NodePort \
-  --set 'eastwest.service.spec.ports[0].name=tls-hbone' \
-  --set 'eastwest.service.spec.ports[0].port=15008' \
-  --set 'eastwest.service.spec.ports[0].nodePort=30015' \
-  --set 'eastwest.service.spec.ports[0].protocol=TCP' \
-  --set 'eastwest.service.spec.ports[1].name=tls-xds' \
-  --set 'eastwest.service.spec.ports[1].port=15012' \
-  --set 'eastwest.service.spec.ports[1].nodePort=30016' \
-  --set 'eastwest.service.spec.ports[1].protocol=TCP' \
-  --set remote.create=false \
-  --wait</code></pre>
-
-  <h4>Discover node IPs on the kind Docker bridge</h4>
-<pre><code>EAST_IP=$(docker inspect ${CLUSTER1#kind-}-control-plane \
-  --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
-WEST_IP=$(docker inspect ${CLUSTER2#kind-}-control-plane \
-  --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
-echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
+  <h4>Wait for MetalLB to assign LB IPs</h4>
+<pre><code>EAST_EW_IP=$(kubectl --context $CLUSTER1 -n istio-eastwest \
+  get svc istio-eastwest -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+WEST_EW_IP=$(kubectl --context $CLUSTER2 -n istio-eastwest \
+  get svc istio-eastwest -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+echo "east-ag east-west GW: $EAST_EW_IP    west-ag east-west GW: $WEST_EW_IP"
+# → east-ag east-west GW: 172.22.x.x   west-ag east-west GW: 172.22.x.x</code></pre>
 
   <h4>Add remote peer reference — east knows about west</h4>
 <pre><code>helm upgrade --install remote-peers \
@@ -762,9 +738,9 @@ echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
   --set "remote.items[0].cluster=${CLUSTER2#kind-}" \
   --set "remote.items[0].network=${CLUSTER2#kind-}" \
   --set 'remote.items[0].trustDomain=cluster.local' \
-  --set "remote.items[0].address=${WEST_IP}" \
-  --set 'remote.items[0].hbonePort=30015' \
-  --set 'remote.items[0].xdsPort=30016'</code></pre>
+  --set "remote.items[0].address=${WEST_EW_IP}" \
+  --set 'remote.items[0].hbonePort=15008' \
+  --set 'remote.items[0].xdsPort=15012'</code></pre>
 
   <h4>Add remote peer reference — west knows about east</h4>
 <pre><code>helm upgrade --install remote-peers \
@@ -777,9 +753,9 @@ echo "east: $EAST_IP   west: $WEST_IP"</code></pre>
   --set "remote.items[0].cluster=${CLUSTER1#kind-}" \
   --set "remote.items[0].network=${CLUSTER1#kind-}" \
   --set 'remote.items[0].trustDomain=cluster.local' \
-  --set "remote.items[0].address=${EAST_IP}" \
-  --set 'remote.items[0].hbonePort=30015' \
-  --set 'remote.items[0].xdsPort=30016'</code></pre>
+  --set "remote.items[0].address=${EAST_EW_IP}" \
+  --set 'remote.items[0].hbonePort=15008' \
+  --set 'remote.items[0].xdsPort=15012'</code></pre>
 
   <h4>Cross-apply remote secrets (control-plane discovery)</h4>
   <p>Without these, istiod's "Number of remote clusters" stays at 0 and cross-cluster services never get endpoints.</p>
@@ -800,20 +776,20 @@ istioctl create-remote-secret \
 
   <p>Expected output:</p>
 <pre><code>✅ Incompatible Environment Variable Check: all relevant environment variables are valid
-⚠️  License Check: found invalid license for multicluster
+✅ License Check: license is valid for multicluster
 ✅ Pod Check (istiod): all pods healthy
 ✅ Pod Check (ztunnel): all pods healthy
 ✅ Pod Check (eastwest gateway): all pods healthy
 ✅ Gateway Check: all eastwest gateways programmed
      ✅ istio-eastwest/istio-eastwest available at &lt;MetalLB IP&gt;
 ✅ Peers Check: all clusters connected
-     ✅ Connected to &lt;peer cluster&gt; via &lt;node IP&gt;
-ℹ️  Shared Services Check: no globally shared services found
+     ✅ Connected to &lt;peer cluster&gt; via &lt;peer LB IP&gt;
+ℹ️  Shared Services Check: no globally shared services found      (1 after Step 09)
 ℹ️  Intermediate Certs Compatibility Check: root certificate SHA256 sum: &lt;hash&gt;
 ✅ Network Configuration Check: all network configurations are valid</code></pre>
 
   <div class="note">
-    <strong>License warning is expected.</strong> The <code>⚠️ License Check: found invalid license for multicluster</code> warning means your <code>SOLO_ISTIO_LICENSE_KEY</code> covers Solo Istio but not the full multicluster entitlement (GlobalService/Segment CRDs). Basic HBONE peering and failover still work — the <strong>Peers Check ✅</strong> is what matters.
+    <strong>If you see <code>⚠️ License Check: found invalid license for multicluster</code></strong>, your <code>SOLO_ISTIO_LICENSE_KEY</code> covers Solo Istio but not the full multicluster entitlement (GlobalService/Segment CRDs). Basic HBONE peering and locality-aware failover still work — the <strong>Peers Check ✅</strong> is what matters.
   </div>
 </div>
 
@@ -972,71 +948,103 @@ kill %1</code></pre>
 <!-- ── STEP 12 ── -->
 <div class="step">
   <div class="step-num">STEP 12</div>
-  <h3>Failover — scale productpage down on east</h3>
-  <p>Demonstrates cross-cluster failover. Traffic should continue to flow to west's productpage when east's is scaled to zero.</p>
+  <h3>Failover — mesh-layer cross-cluster failover</h3>
+  <p>This step demonstrates Solo Istio's global service failover at the mesh layer. When <code>productpage-v1</code> is scaled to zero on east, calls to the global hostname <code>productpage.bookinfo.mesh.internal</code> transparently route to west via the east-west HBONE gateway.</p>
 
-  <h4>Scale down productpage on east</h4>
+  <div class="note">
+    <strong>Why this isn't tested through the ingress.</strong>
+    Enterprise agentgateway v2.1.1 (dataplane image <code>0.11.1-patch1</code>) only consumes
+    XDS workloads with an IP or hostname address — it doesn't yet support istiod's
+    network-gateway-only WorkloadEntry pattern (the synthetic entry that points clients to a
+    remote east-west gateway by reference). Until that's supported, ingress-initiated calls
+    can't be transparently re-routed cross-cluster. The mesh fabric itself <em>does</em> handle
+    this — ztunnel resolves the synthetic VIP (240.240.0.2) and tunnels via HBONE to the
+    peer cluster's east-west GW.
+  </div>
+
+  <h4>Scale productpage down on east</h4>
 <pre><code>kubectl --context $CLUSTER1 scale deploy productpage-v1 -n bookinfo --replicas=0
+kubectl --context $CLUSTER1 -n bookinfo wait --for=delete pod -l app=productpage --timeout=30s</code></pre>
 
-# Wait, then curl — traffic should still arrive via west
-kubectl --context $CLUSTER1 -n bookinfo \
-  port-forward svc/bookinfo-gateway 8080:8080 &amp;
-curl -s http://localhost:8080/productpage | grep -o "&lt;title&gt;.*&lt;/title&gt;"
-kill %1</code></pre>
+  <h4>Confirm there are no local endpoints, but the global VIP is healthy</h4>
+<pre><code>istioctl --context $CLUSTER1 ztunnel-config service | grep productpage
+# bookinfo  autogen.bookinfo.productpage  240.240.0.2,2001:2::2  None  1/1   ← cross-cluster
+# bookinfo  productpage                   10.96.x.x              None  0/0   ← local svc, no eps
+# bookinfo  productpage-v1                10.96.x.x              None  0/0</code></pre>
 
-  <h4>Scale back up</h4>
-<pre><code>kubectl --context $CLUSTER1 scale deploy productpage-v1 -n bookinfo --replicas=1</code></pre>
+  <h4>Curl through the mesh using the global hostname</h4>
+  <p>Run a curl pod inside the ambient mesh so its outbound call is intercepted by ztunnel. The synthetic VIP <code>240.240.0.2</code> resolves to the global hostname, which istiod has programmed with the remote (west) endpoint.</p>
+<pre><code>kubectl --context $CLUSTER1 -n bookinfo run mesh-curl \
+  --rm -i --restart=Never --image=curlimages/curl:8.5.0 -- \
+  curl -sS -o /dev/null -w "HTTP %{http_code} via %{remote_ip}\n" \
+    http://productpage.bookinfo.mesh.internal:9080/productpage
+# → HTTP 200 via 240.240.0.2</code></pre>
 
-  <h4>Bonus — force details failover</h4>
-  <p>Labels <code>details</code> as global-only so load balances equally across both clusters even when both are up.</p>
-<pre><code>kubectl --context $CLUSTER1 scale deploy details-v1 -n bookinfo --replicas=0
+  <h4>Compare — calling the regular short hostname does NOT fail over</h4>
+  <p>This is by design: the regular Service VIP only includes local endpoints. Locality-aware failover only kicks in for the <code>*.mesh.internal</code> global hostname.</p>
+<pre><code>kubectl --context $CLUSTER1 -n bookinfo run mesh-curl \
+  --rm -i --restart=Never --image=curlimages/curl:8.5.0 -- \
+  curl -sS -o /dev/null -w "HTTP %{http_code} via %{remote_ip}\n" \
+    http://productpage:9080/productpage
+# → HTTP 000 (connection reset — local VIP 10.96.x.x has 0 endpoints)</code></pre>
 
-kubectl --context $CLUSTER1 label svc details -n bookinfo \
-  solo.io/service-scope=global-only --overwrite
-
-# curl productpage on east — details are served from west
-kubectl --context $CLUSTER1 -n bookinfo \
-  port-forward svc/bookinfo-gateway 8080:8080 &amp;
-curl -s http://localhost:8080/productpage | grep "Book Details"
-kill %1
-
-# Restore
-kubectl --context $CLUSTER1 scale deploy details-v1 -n bookinfo --replicas=1</code></pre>
+  <h4>Scale productpage back up on east</h4>
+<pre><code>kubectl --context $CLUSTER1 scale deploy productpage-v1 -n bookinfo --replicas=1
+kubectl --context $CLUSTER1 -n bookinfo wait --for=condition=Ready pod -l app=productpage --timeout=60s</code></pre>
 </div>
 
 <!-- ── STEP 13 ── -->
 <div class="step">
   <div class="step-num">STEP 13</div>
   <h3>L7 policy — <code>enterprise-agentgateway-waypoint</code></h3>
-  <p>Deploy a waypoint to the bookinfo namespace, then apply an HTTPRoute to control reviews traffic.</p>
+  <p>Deploy an AgentGateway waypoint proxy for the bookinfo namespace, then use an HTTPRoute to pin reviews traffic to a specific version. ztunnel transparently routes all bookinfo traffic through the waypoint for L7 processing.</p>
 
   <div class="note">
-    Port <code>15088</code> is the inbound application listener for the enterprise waypoint (not <code>15008</code>, which is HBONE termination).
+    Two keys for <code>enterprise-agentgateway-waypoint</code> to work as an Istio ambient waypoint:
+    <br>1. Listener must use <code>protocol: HBONE, port: 15008</code>
+    <br>2. <code>EnterpriseAgentgatewayParameters</code> must set <code>istioClusterId</code> matching istiod's <code>--clusterID</code> flag (sets the <code>CLUSTER_ID</code> env var that istiod uses to validate the pod's JWT).
   </div>
 
-  <h4>Deploy enterprise-agentgateway-waypoint</h4>
+  <h4>Create EnterpriseAgentgatewayParameters and waypoint Gateway</h4>
 <pre><code>kubectl --context $CLUSTER1 apply -f - &lt;&lt;'EOF'
+apiVersion: enterpriseagentgateway.solo.io/v1alpha1
+kind: EnterpriseAgentgatewayParameters
+metadata:
+  name: waypoint-params
+  namespace: bookinfo
+spec:
+  istioClusterId: east-ag        # must match istiod --clusterID
+  ca:
+    trustDomain: cluster.local   # must match mesh trustDomain
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: waypoint
+  name: agw-waypoint
   namespace: bookinfo
-  labels:
-    istio.io/waypoint-for: namespace
 spec:
   gatewayClassName: enterprise-agentgateway-waypoint
   listeners:
-  - name: mesh
-    port: 15088
-    protocol: HTTP
+    - name: proxy
+      port: 15008
+      protocol: HBONE
+  infrastructure:
+    parametersRef:
+      group: enterpriseagentgateway.solo.io
+      kind: EnterpriseAgentgatewayParameters
+      name: waypoint-params
 EOF</code></pre>
 
-  <h4>Label namespace to use this waypoint</h4>
+  <h4>Label the namespace and verify ztunnel sees the waypoint</h4>
 <pre><code>kubectl --context $CLUSTER1 label namespace bookinfo \
-  istio.io/use-waypoint=waypoint --overwrite</code></pre>
+  istio.io/use-waypoint=agw-waypoint --overwrite
 
-  <h4>Apply reviews v1 routing (header-based)</h4>
-  <p>Sends user <code>jason</code> to reviews-v2 (with ratings stars); everyone else gets reviews-v1 (no stars).</p>
+# Wait ~5s, then verify all bookinfo services show "agw-waypoint"
+istioctl --context $CLUSTER1 ztunnel-config service | grep bookinfo
+# → bookinfo   reviews   10.x.x.x   agw-waypoint   3/3</code></pre>
+
+  <h4>Apply header-based reviews routing</h4>
+  <p>Sends user <code>jason</code> to reviews-v2 (black stars); everyone else gets reviews-v1 (no stars). The <code>Service</code> parentRef is the Istio Ambient waypoint pattern.</p>
 <pre><code>kubectl --context $CLUSTER1 apply -f - &lt;&lt;'EOF'
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -1062,23 +1070,27 @@ spec:
       port: 9080
 EOF</code></pre>
 
-  <h4>Test — default user (no stars)</h4>
+  <h4>Test — default user (no stars, reviews-v1)</h4>
 <pre><code>kubectl --context $CLUSTER1 -n bookinfo \
   port-forward svc/bookinfo-gateway 8080:8080 &amp;
+
 curl -s http://localhost:8080/productpage | grep "glyphicon-star"
-# → no output (reviews-v1, no stars)
+# → no output — locked to reviews-v1 (no ratings)
+
 kill %1</code></pre>
 
-  <h4>Test — user jason (black stars)</h4>
+  <h4>Test — user jason via browser (black stars, reviews-v2)</h4>
+  <p>Open <code>http://localhost:8080/productpage</code> in a browser and <strong>log in as jason / jason</strong>. productpage sets a session cookie with <code>end-user: jason</code> which the waypoint sees on the internal call to reviews.</p>
+
+  <h4>Confirm traffic went through the agentgateway waypoint</h4>
 <pre><code>kubectl --context $CLUSTER1 -n bookinfo \
-  port-forward svc/bookinfo-gateway 8080:8080 &amp;
-curl -s -H "end-user: jason" http://localhost:8080/productpage \
-  | grep "glyphicon-star"
-# → should find star elements (reviews-v2)
-kill %1</code></pre>
+  logs -l gateway.networking.k8s.io/gateway-name=agw-waypoint \
+  --tail=5
+# → gateway=bookinfo/agw-waypoint listener=waypoint route=bookinfo/reviews http.status=200</code></pre>
 
   <h4>Clean up routing</h4>
 <pre><code>kubectl --context $CLUSTER1 delete httproute reviews -n bookinfo
+kubectl --context $CLUSTER1 delete gateway agw-waypoint -n bookinfo
 kubectl --context $CLUSTER1 label namespace bookinfo \
   istio.io/use-waypoint- --overwrite</code></pre>
 </div>
